@@ -46,7 +46,7 @@ load_dotenv(Path(__file__).parent / ".env", override=True)
 # ---------------------------------------------------------------------------
 
 DEEPGRAM_API_KEY = os.environ["DEEPGRAM_API_KEY"]
-GROQ_API_KEY = os.environ["GROQ_API_KEY"]
+OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 SARVAM_API_KEY = os.environ["SARVAM_API_KEY"]
 VOBIZ_AUTH_ID = os.environ["VOBIZ_AUTH_ID"]           # X-Auth-ID from console.vobiz.ai
 VOBIZ_AUTH_TOKEN = os.environ["VOBIZ_AUTH_TOKEN"]     # X-Auth-Token from console.vobiz.ai
@@ -125,7 +125,7 @@ async def ws_inbound(websocket: WebSocket):
         await run_inbound(
             transport=transport,
             deepgram_api_key=DEEPGRAM_API_KEY,
-            groq_api_key=GROQ_API_KEY,
+            openai_api_key=OPENAI_API_KEY,
             sarvam_api_key=SARVAM_API_KEY,
         )
     except Exception as e:
@@ -143,7 +143,7 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
             transport=transport,
             session_token=session,
             deepgram_api_key=DEEPGRAM_API_KEY,
-            groq_api_key=GROQ_API_KEY,
+            openai_api_key=OPENAI_API_KEY,
             sarvam_api_key=SARVAM_API_KEY,
         )
     except Exception as e:

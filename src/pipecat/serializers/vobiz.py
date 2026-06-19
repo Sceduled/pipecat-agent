@@ -96,6 +96,7 @@ class VobizFrameSerializer(FrameSerializer):
 
         self._input_resampler = create_stream_resampler()
         self._output_resampler = create_stream_resampler()
+        self._first_audio_sent = False
 
     # ------------------------------------------------------------------
     # FrameSerializer interface
@@ -135,6 +136,14 @@ class VobizFrameSerializer(FrameSerializer):
             )
             if not serialized_audio:
                 return None
+
+            if not self._first_audio_sent:
+                self._first_audio_sent = True
+                logger.info(
+                    f"VobizFrameSerializer: sending first audio to Vobiz — "
+                    f"{len(serialized_audio)} bytes µ-law at {self._vobiz_sample_rate}Hz "
+                    f"(input was {frame.sample_rate}Hz PCM)"
+                )
 
             payload = base64.b64encode(serialized_audio).decode("utf-8")
             return json.dumps(

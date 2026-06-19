@@ -6,6 +6,11 @@ Server stores the lead context in memory keyed by a session token,
 calls the Vobiz REST API to dial the lead,
 Vobiz opens a WebSocket to /ws/outbound?session=<token>,
 and the pipeline picks up the pre-stored lead context.
+
+Three outbound call types (set via call_type in the /dial payload):
+  follow_up     — Lead submitted a form, following up on their enquiry
+  visit_reminder — Remind about an upcoming site visit
+  new_launch    — Inform a past lead about a new property matching their criteria
 """
 
 import aiohttp
@@ -26,27 +31,28 @@ from pipecat.turns.user_stop.speech_timeout_user_turn_stop_strategy import (
 )
 from pipecat.turns.user_turn_strategies import UserTurnStrategies
 from pipecat.services.deepgram.stt import DeepgramSTTService
-from pipecat.services.groq.llm import GroqLLMService
-from pipecat.services.sarvam.tts import SarvamTTSService
+from pipecat.services.openai.llm import OpenAILLMService
+from pipecat.services.sarvam.tts import SarvamHttpTTSService
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketTransport
 from pipecat.workers.runner import WorkerRunner
 
 from tools import OUTBOUND_TOOLS
 
 # ---------------------------------------------------------------------------
-# Session store
+# Session store — maps session_token → lead context dict
+# In production, use Redis or a DB so multiple server instances share state.
 # ---------------------------------------------------------------------------
 
 pending_outbound_sessions: dict[str, dict] = {}
 
 
 # ---------------------------------------------------------------------------
-# System prompts
+# System prompts — one per call type
 # ---------------------------------------------------------------------------
 
 _BASE_RULES = """
 PHONE CALL SPEAKING RULES — follow these exactly:
-- Speak in 1 to 3 complete, naturally connected sentences per response.
+- Speak in 1 to 2 complete, naturally flowing sentences per response.
 - Use smooth connectors that create natural flow: "So, what I can do is...", "That's great — just to confirm...", "Perfect, let me grab those details."
 - Never say confirmation IDs, booking IDs, or reference numbers out loud.
 - Never say "I'll log this", "let me check", "just a moment", or backend commentary.
@@ -57,7 +63,7 @@ PHONE CALL SPEAKING RULES — follow these exactly:
 - If lead speaks Hindi, reply in a warm Hindi-English mix.
 - Never ask more than one question at a time.
 - If they are busy, ask for a good callback time, then call update_call_outcome silently.
-- Call update_call_outcome ONLY at the very end of the conversation."""
+- Call update_call_outcome ONLY at the very end of the conversation, not before."""
 
 
 def build_outbound_prompt(call_type: str, lead: dict) -> str:
@@ -105,7 +111,7 @@ Introduce yourself warmly, understand their need, and help them take the next st
 
 
 # ---------------------------------------------------------------------------
-# Dial helper
+# Dial helper — calls Vobiz REST API to initiate an outbound call
 # ---------------------------------------------------------------------------
 
 
@@ -117,6 +123,10 @@ async def dial_lead(
     answer_url: str,
 ) -> dict:
     """Trigger an outbound call via the Vobiz REST API.
+
+    The caller (main.py /dial) is responsible for creating the session token,
+    storing lead context in pending_outbound_sessions, and building answer_url
+    before calling this function.
 
     Args:
         to_number: Lead's phone number with country code, e.g. +919876543210.
@@ -157,7 +167,7 @@ async def run_outbound(
     transport: FastAPIWebsocketTransport,
     session_token: str,
     deepgram_api_key: str,
-    groq_api_key: str,
+    openai_api_key: str,
     sarvam_api_key: str,
 ) -> None:
     """Build and run the outbound call pipeline for a given session.
@@ -166,7 +176,7 @@ async def run_outbound(
         transport: The FastAPIWebsocketTransport connected to Vobiz.
         session_token: Token identifying the pre-stored lead context.
         deepgram_api_key: Deepgram API key.
-        groq_api_key: Groq API key for ultra-low latency LLM inference.
+        openai_api_key: OpenAI API key for LLM.
         sarvam_api_key: Sarvam API key.
     """
     lead_context = pending_outbound_sessions.pop(session_token, {})
@@ -176,85 +186,89 @@ async def run_outbound(
     call_type = lead_context.get("call_type", "follow_up")
     system_prompt = build_outbound_prompt(call_type, lead_context)
 
-    # --- STT ---
-    stt = DeepgramSTTService(
-        api_key=deepgram_api_key,
-    )
-
-    # --- LLM ---
-    # Groq: ~100-150ms inference vs ~400-600ms OpenAI — saves 300-500ms every turn.
-    llm = GroqLLMService(
-        api_key=groq_api_key,
-        settings=GroqLLMService.Settings(
-            model="llama-3.3-70b-versatile",
-            system_instruction=system_prompt,
-        ),
-    )
-
-    # --- TTS ---
-    tts = SarvamTTSService(
-        api_key=sarvam_api_key,
-        settings=SarvamTTSService.Settings(
-            voice="priya",
-            model="bulbul:v3",
-            pace=1.05,
-            temperature=0.65,
-            min_buffer_size=25,
-            max_chunk_length=250,
-        ),
-    )
-
-    # --- Context + aggregator ---
-    context = LLMContext(tools=OUTBOUND_TOOLS)
-    user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
-        context,
-        user_params=LLMUserAggregatorParams(
-            # VAD ONLY here in the aggregator — not on the transport.
-            # Dual VAD causes the aggregator to go deaf after the opener.
-            vad_analyzer=SileroVADAnalyzer(
-                params=VADParams(min_volume=0.6, confidence=0.6, stop_secs=0.6)
+    async with aiohttp.ClientSession() as http_session:
+        # --- STT ---
+        stt = DeepgramSTTService(
+            api_key=deepgram_api_key,
+            settings=DeepgramSTTService.Settings(
+                model="nova-2-phonecall",
+                endpointing=300,
+                utterance_end_ms=1000,
+                interim_results=True,
             ),
-            user_turn_strategies=UserTurnStrategies(
-                stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.7)],
+        )
+
+        # --- LLM ---
+        llm = OpenAILLMService(
+            api_key=openai_api_key,
+            settings=OpenAILLMService.Settings(
+                model="gpt-4o-mini",
+                system_instruction=system_prompt,
             ),
-            user_turn_stop_timeout=2.0,
-        ),
-    )
+        )
 
-    # --- Pipeline ---
-    pipeline = Pipeline([
-        transport.input(),
-        stt,
-        user_aggregator,
-        llm,
-        tts,
-        transport.output(),
-        assistant_aggregator,
-    ])
+        # --- TTS ---
+        # HTTP service: one request per sentence → one audio blob → smooth speech.
+        tts = SarvamHttpTTSService(
+            api_key=sarvam_api_key,
+            aiohttp_session=http_session,
+            settings=SarvamHttpTTSService.Settings(
+                voice="priya",
+                model="bulbul:v3",
+                pace=1.05,
+                temperature=0.65,
+            ),
+        )
 
-    worker = PipelineWorker(
-        pipeline,
-        params=PipelineParams(enable_metrics=True),
-        enable_rtvi=False,
-    )
+        # --- Context + aggregator ---
+        context = LLMContext(tools=OUTBOUND_TOOLS)
+        user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
+            context,
+            user_params=LLMUserAggregatorParams(
+                vad_analyzer=SileroVADAnalyzer(
+                    params=VADParams(min_volume=0.1, confidence=0.5, stop_secs=0.5)
+                ),
+                user_turn_strategies=UserTurnStrategies(
+                    stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.6)],
+                ),
+                user_turn_stop_timeout=2.0,
+            ),
+        )
 
-    # --- Events ---
+        # --- Pipeline ---
+        pipeline = Pipeline([
+            transport.input(),
+            stt,
+            user_aggregator,
+            llm,
+            tts,
+            transport.output(),
+            assistant_aggregator,
+        ])
 
-    @transport.event_handler("on_client_connected")
-    async def on_client_connected(_transport, _client):
-        logger.info(f"Outbound call connected | call_type={call_type} | lead={lead_context.get('name')}")
-        context.add_message({
-            "role": "user",
-            "content": "[call connected — the lead just picked up. Introduce yourself warmly with a natural opening sentence.]",
-        })
-        await worker.queue_frames([LLMRunFrame()])
+        worker = PipelineWorker(
+            pipeline,
+            params=PipelineParams(enable_metrics=True),
+            enable_rtvi=False,
+        )
 
-    @transport.event_handler("on_client_disconnected")
-    async def on_client_disconnected(_transport, _client):
-        logger.info("Outbound call disconnected")
-        await worker.cancel()
+        # --- Events ---
 
-    # --- Run ---
-    runner = WorkerRunner(handle_sigint=False)
-    await runner.add_workers(worker)
-    await runner.run()
+        @transport.event_handler("on_client_connected")
+        async def on_client_connected(_transport, _client):
+            logger.info(f"Outbound call connected | call_type={call_type} | lead={lead_context.get('name')}")
+            context.add_message({
+                "role": "user",
+                "content": "[call connected — the lead just picked up. Introduce yourself warmly with a natural opening sentence.]",
+            })
+            await worker.queue_frames([LLMRunFrame()])
+
+        @transport.event_handler("on_client_disconnected")
+        async def on_client_disconnected(_transport, _client):
+            logger.info("Outbound call disconnected")
+            await worker.cancel()
+
+        # --- Run ---
+        runner = WorkerRunner(handle_sigint=False)
+        await runner.add_workers(worker)
+        await runner.run()
