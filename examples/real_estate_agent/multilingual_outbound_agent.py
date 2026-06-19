@@ -53,7 +53,8 @@ pending_multilingual_sessions: dict[str, dict] = {}
 
 _BASE_RULES = """
 CONVERSATION RULES:
-- Your opening greeting must be ONE short sentence only. Example: "Hi, is this Rahul? This is Priya from Prestige Realty."
+- ALWAYS start your response with a natural Hindi filler phrase to buy time. Example: "Ji zaroor, main check karti hu..." or "Thik hai, main details dekhti hu...". Do NOT skip this filler.
+- Your opening greeting must be ONE short sentence only. Example: "Namaste, kya meri baat Rahul se ho rahi hai? Main Prestige Realty se Priya bol rahi hoon."
 - Your primary language is Hindi. Speak in natural conversational Hindi using Latin script (e.g. "Haa, bilkul, main samajh rahi hu").
 - You MUST start the conversation in Hindi. If and only if the user speaks to you in English, you may switch to English. Otherwise, default to Hindi.
 - Once you have introduced yourself, NEVER say your name or company again in the same call. Continue naturally.
@@ -236,7 +237,7 @@ async def run_multilingual_outbound(
             model="bulbul:v3",
             pace=1.05,
             temperature=0.65,
-            min_buffer_size=50,
+            min_buffer_size=40,
             max_chunk_length=200,
         ),
     )
@@ -280,9 +281,9 @@ async def run_multilingual_outbound(
         logger.info(f"Outbound call connected | call_type={call_type} | lead={lead_context.get('name')}")
         lead_name = lead_context.get("name", "")
         opener = (
-            f"Hi, is this {lead_name}? This is Priya from Prestige Realty."
+            f"Namaste, kya meri baat {lead_name} se ho rahi hai? Main Prestige Realty se Priya bol rahi hoon."
             if lead_name
-            else "Hi, this is Priya from Prestige Realty. Am I speaking with the right person?"
+            else "Namaste, main Prestige Realty se Priya bol rahi hoon. Kya meri baat sahi vyakti se ho rahi hai?"
         )
         # Add greeting to context NOW (synchronous, before any await) so any user
         # speech during the startup window sees a prior assistant turn and the LLM
