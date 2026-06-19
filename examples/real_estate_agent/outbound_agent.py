@@ -193,7 +193,10 @@ async def run_outbound(
     # Groq: ~100-150ms inference vs ~400-600ms OpenAI — saves 300-500ms every turn.
     llm = GroqLLMService(
         api_key=groq_api_key,
-        model="llama-3.3-70b-versatile",
+        settings=GroqLLMService.Settings(
+            model="llama-3.3-70b-versatile",
+            system_instruction=system_prompt,
+        ),
     )
 
     # --- TTS ---

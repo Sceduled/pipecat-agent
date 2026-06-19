@@ -100,7 +100,10 @@ async def run_inbound(
     # latency win available.
     llm = GroqLLMService(
         api_key=groq_api_key,
-        model="llama-3.3-70b-versatile",
+        settings=GroqLLMService.Settings(
+            model="llama-3.3-70b-versatile",
+            system_instruction=INBOUND_SYSTEM_PROMPT,
+        ),
     )
 
     # --- TTS ---
