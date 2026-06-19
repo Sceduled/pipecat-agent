@@ -52,7 +52,13 @@ pending_outbound_sessions: dict[str, dict] = {}
 # ---------------------------------------------------------------------------
 
 _BASE_RULES = """
-PHONE CALL SPEAKING RULES — follow these exactly:
+CONVERSATION RULES:
+- Your opening greeting must be ONE short sentence only. Example: "Hi, is this Rahul? This is Priya from Prestige Realty."
+- Once you have introduced yourself, NEVER say your name or company again in the same call. Continue naturally.
+- If the lead says "hello" or "hi" after your greeting, treat it as conversational — do NOT re-introduce yourself.
+- Lead speech sometimes arrives as multiple short messages in a row — treat them as one continuous sentence.
+
+PHONE CALL SPEAKING RULES:
 - Speak in 1 to 2 complete, naturally flowing sentences per response.
 - Use smooth connectors: "So, what I can do is...", "That's great — just to confirm...", "Perfect, let me grab those details."
 - Never say confirmation IDs, booking IDs, or reference numbers out loud.
@@ -257,11 +263,11 @@ async def run_outbound(
         logger.info(f"Outbound call connected | call_type={call_type} | lead={lead_context.get('name')}")
         # 1-second delay: phone line emits a brief noise burst on connect that
         # triggers VAD and interrupts the opener LLM request without this guard.
-        await asyncio.sleep(1.0)
+        await asyncio.sleep(0.8)
         logger.info("Queuing outbound opener")
         context.add_message({
             "role": "user",
-            "content": "[call connected — the lead just picked up. Introduce yourself warmly with a natural opening sentence.]",
+            "content": "[call just connected — say ONE short greeting sentence only, confirm you are speaking with the right person. Do not say anything else yet.]",
         })
         await worker.queue_frames([LLMRunFrame()])
 
