@@ -38,6 +38,7 @@ from pipecat.transports.websocket.fastapi import (
 
 from inbound_agent import run_inbound
 from outbound_agent import dial_lead, run_outbound
+from multilingual_outbound_agent import run_multilingual_outbound
 
 load_dotenv(Path(__file__).parent / ".env", override=True)
 
@@ -110,6 +111,18 @@ async def voice_xml_outbound(request: Request, session: str = Query(...)):
     )
 
 
+@app.api_route("/voice-xml/outbound-multilingual", methods=["GET", "POST"], response_class=PlainTextResponse)
+async def voice_xml_outbound_multilingual(request: Request, session: str = Query(...)):
+    """
+    Vobiz fetches this URL to get the stream directive for a multilingual outbound call.
+    """
+    ws_url = _ws_base_url(request) + f"/ws/outbound-multilingual?session={session}"
+    return PlainTextResponse(
+        content=_stream_xml(ws_url),
+        media_type="text/xml",
+    )
+
+
 # ---------------------------------------------------------------------------
 # WebSocket handlers
 # ---------------------------------------------------------------------------
@@ -148,6 +161,24 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
         )
     except Exception as e:
         logger.exception(f"Outbound call pipeline error: {e}")
+
+
+@app.websocket("/ws/outbound-multilingual")
+async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(...)):
+    """Handles every outbound multilingual call from Vobiz. session carries the lead context."""
+    await websocket.accept()
+    logger.info(f"Multilingual Outbound WebSocket accepted for session={session}")
+    try:
+        transport = _make_transport(websocket)
+        await run_multilingual_outbound(
+            transport=transport,
+            session_token=session,
+            deepgram_api_key=DEEPGRAM_API_KEY,
+            openai_api_key=OPENAI_API_KEY,
+            sarvam_api_key=SARVAM_API_KEY,
+        )
+    except Exception as e:
+        logger.exception(f"Multilingual Outbound call pipeline error: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -202,6 +233,44 @@ async def dial(request: Request):
         answer_url=answer_url,
     )
     return {"status": "dialing", "to": to_number, "session": session_token, "vobiz": result}
+
+
+@app.post("/dial-multilingual")
+async def dial_multilingual(request: Request):
+    """
+    Trigger a multilingual outbound call to a lead.
+    """
+    body = await request.json()
+
+    to_number = body.get("to")
+    if not to_number:
+        return {"error": "'to' field is required"}
+
+    lead_context = {
+        "name": body.get("name", ""),
+        "call_type": body.get("call_type", "follow_up"),
+        "interest": body.get("interest", ""),
+        "visit_date": body.get("visit_date", ""),
+        "visit_time": body.get("visit_time", ""),
+        "property_name": body.get("property_name", ""),
+        "phone": to_number,
+    }
+
+    from multilingual_outbound_agent import pending_multilingual_sessions
+    session_token = str(uuid.uuid4())
+    pending_multilingual_sessions[session_token] = lead_context
+
+    base = PUBLIC_URL if PUBLIC_URL else _http_base_url(request)
+    answer_url = f"{base}/voice-xml/outbound-multilingual?session={session_token}"
+
+    result = await dial_lead(
+        to_number=to_number,
+        from_number=VOBIZ_FROM_NUMBER,
+        vobiz_auth_id=VOBIZ_AUTH_ID,
+        vobiz_auth_token=VOBIZ_AUTH_TOKEN,
+        answer_url=answer_url,
+    )
+    return {"status": "dialing_multilingual", "to": to_number, "session": session_token, "vobiz": result}
 
 
 # ---------------------------------------------------------------------------
