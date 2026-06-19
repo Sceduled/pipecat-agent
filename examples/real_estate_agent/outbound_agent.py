@@ -19,7 +19,7 @@ from loguru import logger
 
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
-from pipecat.frames.frames import LLMRunFrame
+from pipecat.frames.frames import TTSSpeakFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.worker import PipelineParams, PipelineWorker
 from pipecat.processors.aggregators.llm_context import LLMContext
@@ -261,15 +261,18 @@ async def run_outbound(
     @transport.event_handler("on_client_connected")
     async def on_client_connected(_transport, _client):
         logger.info(f"Outbound call connected | call_type={call_type} | lead={lead_context.get('name')}")
-        # 1-second delay: phone line emits a brief noise burst on connect that
-        # triggers VAD and interrupts the opener LLM request without this guard.
+        # 0.8s guard: phone lines emit a noise burst at ~600ms that fires VAD.
         await asyncio.sleep(0.8)
-        logger.info("Queuing outbound opener")
-        context.add_message({
-            "role": "user",
-            "content": "[call just connected — say ONE short greeting sentence only, confirm you are speaking with the right person. Do not say anything else yet.]",
-        })
-        await worker.queue_frames([LLMRunFrame()])
+        lead_name = lead_context.get("name", "")
+        opener = (
+            f"Hi, is this {lead_name}? This is Priya from Prestige Realty."
+            if lead_name
+            else "Hi, this is Priya from Prestige Realty — am I speaking with the right person?"
+        )
+        logger.info(f"Queuing outbound opener via TTSSpeakFrame: {opener}")
+        # Bypass LLM for the opener — goes straight to TTS and adds the assistant
+        # turn to context immediately, so any user "Hello" won't trigger a re-intro.
+        await worker.queue_frames([TTSSpeakFrame(text=opener)])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(_transport, _client):

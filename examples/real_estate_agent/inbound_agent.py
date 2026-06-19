@@ -13,7 +13,7 @@ from loguru import logger
 
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
-from pipecat.frames.frames import LLMRunFrame
+from pipecat.frames.frames import TTSSpeakFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.worker import PipelineParams, PipelineWorker
 from pipecat.processors.aggregators.llm_context import LLMContext
@@ -165,17 +165,17 @@ async def run_inbound(
     @transport.event_handler("on_client_connected")
     async def on_client_connected(_transport, _client):
         logger.info("Inbound call connected — waiting for phone line to settle")
-        # Phone lines emit a brief noise burst (click/ringback artifact) within the
-        # first 600ms of WebSocket open. Without this delay the burst triggers VAD,
-        # which interrupts the in-flight LLM opener request and silences the bot for
-        # the rest of the call.
+        # 0.8s guard: phone lines emit a noise burst at ~600ms that fires VAD.
+        # We start TTS only after it has passed so the burst can't interrupt us.
         await asyncio.sleep(0.8)
-        logger.info("Queuing greeting")
-        context.add_message({
-            "role": "user",
-            "content": "[call just connected — say ONE short greeting sentence and ask how you can help. Do not say anything else.]",
-        })
-        await worker.queue_frames([LLMRunFrame()])
+        logger.info("Queuing greeting via TTSSpeakFrame")
+        # Bypass LLM for the opener: TTSSpeakFrame goes straight to TTS and
+        # (with append_to_context=True) immediately adds the assistant turn to
+        # context. Any user "Hello" that arrives while we sleep is processed
+        # AFTER this assistant message exists, so the LLM will not re-introduce.
+        await worker.queue_frames([
+            TTSSpeakFrame(text="Hi, this is Priya from Prestige Realty — how can I help you today?")
+        ])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(_transport, _client):
