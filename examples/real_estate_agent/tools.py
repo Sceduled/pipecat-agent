@@ -187,16 +187,20 @@ async def book_site_visit(
         preferred_time: Preferred visit time, e.g. 10:00 AM.
     """
     # TODO: integrate with Google Calendar or your CRM booking system
-    confirmation_id = "SV-" + datetime.now().strftime("%Y%m%d%H%M%S")
     logger.info(f"Site visit booked: {caller_name} | {caller_phone} | {property_id} | {preferred_date} {preferred_time}")
+
+    # Format date as spoken English so the LLM doesn't read "2026-06-25" aloud.
+    try:
+        spoken_date = datetime.strptime(preferred_date, "%Y-%m-%d").strftime("%A the %-d of %B")
+    except (ValueError, AttributeError):
+        spoken_date = preferred_date
 
     await params.result_callback({
         "status": "confirmed",
-        "confirmation_id": confirmation_id,
         "property_id": property_id,
-        "date": preferred_date,
+        "spoken_date": spoken_date,
         "time": preferred_time,
-        "message": f"Site visit confirmed for {preferred_date} at {preferred_time}. Confirmation ID: {confirmation_id}.",
+        "message": f"Visit confirmed for {spoken_date} at {preferred_time}.",
     })
 
 
@@ -242,7 +246,7 @@ async def transfer_to_agent(params: FunctionCallParams, reason: str) -> None:
     # TODO: trigger call transfer via Vobiz API or your telephony system
     await params.result_callback({
         "status": "transferring",
-        "message": "Connecting you to our sales team now. Please hold for a moment.",
+        "message": "Transfer initiated. Tell the caller warmly that you are connecting them to a colleague right away.",
     })
 
 
@@ -266,12 +270,17 @@ async def confirm_site_visit(
         visit_time: Scheduled visit time, e.g. 11:00 AM.
         property_name: Name of the property to be visited.
     """
+    try:
+        spoken_date = datetime.strptime(visit_date, "%Y-%m-%d").strftime("%A the %-d of %B")
+    except (ValueError, AttributeError):
+        spoken_date = visit_date
+
     await params.result_callback({
         "status": "confirmed",
-        "date": visit_date,
+        "spoken_date": spoken_date,
         "time": visit_time,
         "property": property_name,
-        "message": f"Site visit confirmed for {visit_date} at {visit_time} for {property_name}.",
+        "message": f"Visit confirmed for {spoken_date} at {visit_time} for {property_name}.",
     })
 
 
