@@ -261,18 +261,21 @@ async def run_outbound(
     @transport.event_handler("on_client_connected")
     async def on_client_connected(_transport, _client):
         logger.info(f"Outbound call connected | call_type={call_type} | lead={lead_context.get('name')}")
-        # 0.8s guard: phone lines emit a noise burst at ~600ms that fires VAD.
-        await asyncio.sleep(0.8)
         lead_name = lead_context.get("name", "")
         opener = (
             f"Hi, is this {lead_name}? This is Priya from Prestige Realty."
             if lead_name
             else "Hi, this is Priya from Prestige Realty — am I speaking with the right person?"
         )
+        # Add greeting to context NOW (synchronous, before any await) so any user
+        # speech during the startup window sees a prior assistant turn and the LLM
+        # won't re-introduce. TTSSpeakFrame(append_to_context=False) synthesizes the
+        # audio without double-adding the message after TTS finishes.
+        context.add_message({"role": "assistant", "content": opener})
+        # 0.8s guard: phone lines emit a noise burst at ~600ms that fires VAD.
+        await asyncio.sleep(0.8)
         logger.info(f"Queuing outbound opener via TTSSpeakFrame: {opener}")
-        # Bypass LLM for the opener — goes straight to TTS and adds the assistant
-        # turn to context immediately, so any user "Hello" won't trigger a re-intro.
-        await worker.queue_frames([TTSSpeakFrame(text=opener)])
+        await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(_transport, _client):

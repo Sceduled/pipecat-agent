@@ -165,17 +165,17 @@ async def run_inbound(
     @transport.event_handler("on_client_connected")
     async def on_client_connected(_transport, _client):
         logger.info("Inbound call connected — waiting for phone line to settle")
-        # 0.8s guard: phone lines emit a noise burst at ~600ms that fires VAD.
-        # We start TTS only after it has passed so the burst can't interrupt us.
+        opener = "Hi, this is Priya from Prestige Realty — how can I help you today?"
+        # Add greeting to context NOW (synchronous, before any await) so any user
+        # speech during the startup window sees a prior assistant turn and the LLM
+        # won't re-introduce. TTSSpeakFrame(append_to_context=False) synthesizes the
+        # audio without double-adding the message after TTS finishes.
+        context.add_message({"role": "assistant", "content": opener})
+        # 0.8s guard: phone lines emit a noise burst at ~600ms that fires VAD and
+        # would interrupt TTS. We start synthesis only after it has passed.
         await asyncio.sleep(0.8)
         logger.info("Queuing greeting via TTSSpeakFrame")
-        # Bypass LLM for the opener: TTSSpeakFrame goes straight to TTS and
-        # (with append_to_context=True) immediately adds the assistant turn to
-        # context. Any user "Hello" that arrives while we sleep is processed
-        # AFTER this assistant message exists, so the LLM will not re-introduce.
-        await worker.queue_frames([
-            TTSSpeakFrame(text="Hi, this is Priya from Prestige Realty — how can I help you today?")
-        ])
+        await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(_transport, _client):
