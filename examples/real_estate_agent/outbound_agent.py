@@ -70,7 +70,9 @@ PHONE CALL SPEAKING RULES:
 - If lead speaks Hindi, reply in a warm Hindi-English mix.
 - Never ask more than one question at a time.
 - If they are busy, ask for a good callback time, then call update_call_outcome silently.
-- Call update_call_outcome ONLY at the very end of the conversation, not before."""
+- Call update_call_outcome ONLY at the very end of the conversation, not before.
+- Always say apartment sizes as spelled-out letters: say "three B H K" or "two B H K", never "3 BHK" or "2 BHK".
+- Never use dashes or em-dashes in your responses. Use commas or periods instead."""
 
 
 def build_outbound_prompt(call_type: str, lead: dict) -> str:
@@ -265,7 +267,7 @@ async def run_outbound(
         opener = (
             f"Hi, is this {lead_name}? This is Priya from Prestige Realty."
             if lead_name
-            else "Hi, this is Priya from Prestige Realty — am I speaking with the right person?"
+            else "Hi, this is Priya from Prestige Realty. Am I speaking with the right person?"
         )
         # Add greeting to context NOW (synchronous, before any await) so any user
         # speech during the startup window sees a prior assistant turn and the LLM

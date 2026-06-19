@@ -64,7 +64,9 @@ PHONE CALL SPEAKING RULES:
 - Never make up property data. Only use what search_properties returns.
 - No bullet points, no markdown, no emojis — spoken words only.
 - If caller speaks Hindi, reply in a warm Hindi-English mix.
-- Never ask more than one question at a time."""
+- Never ask more than one question at a time.
+- Always say apartment sizes as spelled-out letters: say "three B H K" or "two B H K", never "3 BHK" or "2 BHK".
+- Never use dashes or em-dashes in your responses. Use commas or periods instead."""
 
 
 # ---------------------------------------------------------------------------
@@ -165,7 +167,7 @@ async def run_inbound(
     @transport.event_handler("on_client_connected")
     async def on_client_connected(_transport, _client):
         logger.info("Inbound call connected — waiting for phone line to settle")
-        opener = "Hi, this is Priya from Prestige Realty — how can I help you today?"
+        opener = "Hi, this is Priya from Prestige Realty. How can I help you today?"
         # Add greeting to context NOW (synchronous, before any await) so any user
         # speech during the startup window sees a prior assistant turn and the LLM
         # won't re-introduce. TTSSpeakFrame(append_to_context=False) synthesizes the
