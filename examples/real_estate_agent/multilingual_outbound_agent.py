@@ -248,7 +248,7 @@ async def run_multilingual_outbound(
         context,
         user_params=LLMUserAggregatorParams(
             vad_analyzer=SileroVADAnalyzer(
-                params=VADParams(min_volume=0.1, confidence=0.5, stop_secs=0.5)
+                params=VADParams(min_volume=0.3, confidence=0.75, stop_secs=0.3)
             ),
             user_turn_strategies=UserTurnStrategies(
                 stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.4)],
