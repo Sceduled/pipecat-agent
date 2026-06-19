@@ -6,18 +6,9 @@ Vobiz fetches /voice-xml/inbound, gets the Stream directive,
 then opens a WebSocket to /ws/inbound.
 
 Agent persona: Priya — warm, professional, concise (it's a phone call).
-
-Goals (in order):
-  1. Greet the caller and understand their need
-  2. Qualify: purpose, location, budget, BHK, timeline
-  3. Search matching properties and present top result
-  4. Answer questions (EMI, possession, amenities, RERA)
-  5. Book a site visit
-  6. Save lead to CRM
-  7. Transfer to human agent if caller insists
 """
 
-import aiohttp
+import asyncio
 from loguru import logger
 
 from pipecat.audio.vad.silero import SileroVADAnalyzer
@@ -36,7 +27,7 @@ from pipecat.turns.user_stop.speech_timeout_user_turn_stop_strategy import (
 from pipecat.turns.user_turn_strategies import UserTurnStrategies
 from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.openai.llm import OpenAILLMService
-from pipecat.services.sarvam.tts import SarvamHttpTTSService
+from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketTransport
 from pipecat.workers.runner import WorkerRunner
 
@@ -89,98 +80,103 @@ async def run_inbound(
         openai_api_key: OpenAI API key for LLM.
         sarvam_api_key: Sarvam API key for TTS.
     """
-    async with aiohttp.ClientSession() as http_session:
-        # --- STT ---
-        # nova-2-phonecall: tuned for telephone audio (G.711 µ-law characteristics).
-        # endpointing=300ms + utterance_end_ms=1000: forces Deepgram to emit a final
-        # transcript after 300ms silence on the phone line (default never ends because
-        # phone background noise prevents clean silence detection).
-        stt = DeepgramSTTService(
-            api_key=deepgram_api_key,
-            settings=DeepgramSTTService.Settings(
-                model="nova-2-phonecall",
-                endpointing=300,
-                utterance_end_ms=1000,
-                interim_results=True,
+    # --- STT ---
+    # nova-2-phonecall: tuned for G.711 µ-law telephone audio.
+    # endpointing=300ms: Deepgram fires final transcript 300ms after speech stops
+    # (default never fires on phone lines because background noise prevents silence).
+    stt = DeepgramSTTService(
+        api_key=deepgram_api_key,
+        settings=DeepgramSTTService.Settings(
+            model="nova-2-phonecall",
+            endpointing=300,
+            utterance_end_ms=1000,
+            interim_results=True,
+        ),
+    )
+
+    # --- LLM ---
+    llm = OpenAILLMService(
+        api_key=openai_api_key,
+        settings=OpenAILLMService.Settings(
+            model="gpt-4o-mini",
+            system_instruction=INBOUND_SYSTEM_PROMPT,
+        ),
+    )
+
+    # --- TTS ---
+    # WebSocket streaming: first audio arrives in ~0.4s (vs 3+ s for HTTP).
+    # min_buffer_size=80: Sarvam accumulates 80 chars before starting synthesis,
+    # so each short sentence is ONE synthesis job → smooth continuous audio.
+    # (With min_buffer_size=25, every 25-char burst is separate → word-by-word.)
+    tts = SarvamTTSService(
+        api_key=sarvam_api_key,
+        settings=SarvamTTSService.Settings(
+            voice="priya",
+            model="bulbul:v3",
+            pace=1.05,
+            temperature=0.65,
+            min_buffer_size=80,
+            max_chunk_length=200,
+        ),
+    )
+
+    # --- Context + aggregator ---
+    context = LLMContext(tools=INBOUND_TOOLS)
+    user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
+        context,
+        user_params=LLMUserAggregatorParams(
+            # min_volume=0.1: phone audio amplitude is ~0.05–0.25 (µ-law decoded).
+            # The default 0.6 never triggers on phone lines — bot goes deaf after opener.
+            vad_analyzer=SileroVADAnalyzer(
+                params=VADParams(min_volume=0.1, confidence=0.5, stop_secs=0.5)
             ),
-        )
-
-        # --- LLM ---
-        llm = OpenAILLMService(
-            api_key=openai_api_key,
-            settings=OpenAILLMService.Settings(
-                model="gpt-4o-mini",
-                system_instruction=INBOUND_SYSTEM_PROMPT,
+            user_turn_strategies=UserTurnStrategies(
+                stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.6)],
             ),
-        )
+            user_turn_stop_timeout=2.0,
+        ),
+    )
 
-        # --- TTS ---
-        # SarvamHttpTTSService: one HTTP request per sentence → one audio blob →
-        # one playAudio event to Vobiz = smooth, uninterrupted speech.
-        # (The WebSocket streaming variant sends many small chunks, causing
-        # word-by-word choppy playback over phone lines.)
-        tts = SarvamHttpTTSService(
-            api_key=sarvam_api_key,
-            aiohttp_session=http_session,
-            settings=SarvamHttpTTSService.Settings(
-                voice="priya",
-                model="bulbul:v3",
-                pace=1.05,
-                temperature=0.65,
-            ),
-        )
+    # --- Pipeline ---
+    pipeline = Pipeline([
+        transport.input(),
+        stt,
+        user_aggregator,
+        llm,
+        tts,
+        transport.output(),
+        assistant_aggregator,
+    ])
 
-        # --- Context + aggregator ---
-        context = LLMContext(tools=INBOUND_TOOLS)
-        user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
-            context,
-            user_params=LLMUserAggregatorParams(
-                # min_volume=0.1 is critical for phone audio: µ-law decoded amplitude
-                # is ~0.05–0.25, so the default 0.6 never detects speech at all.
-                vad_analyzer=SileroVADAnalyzer(
-                    params=VADParams(min_volume=0.1, confidence=0.5, stop_secs=0.5)
-                ),
-                user_turn_strategies=UserTurnStrategies(
-                    stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.6)],
-                ),
-                user_turn_stop_timeout=2.0,
-            ),
-        )
+    worker = PipelineWorker(
+        pipeline,
+        params=PipelineParams(enable_metrics=True),
+        enable_rtvi=False,
+    )
 
-        # --- Pipeline ---
-        pipeline = Pipeline([
-            transport.input(),
-            stt,
-            user_aggregator,
-            llm,
-            tts,
-            transport.output(),
-            assistant_aggregator,
-        ])
+    # --- Events ---
 
-        worker = PipelineWorker(
-            pipeline,
-            params=PipelineParams(enable_metrics=True),
-            enable_rtvi=False,
-        )
+    @transport.event_handler("on_client_connected")
+    async def on_client_connected(_transport, _client):
+        logger.info("Inbound call connected — waiting for phone line to settle")
+        # Phone lines emit a brief noise burst (click/ringback artifact) within the
+        # first 600ms of WebSocket open. Without this delay the burst triggers VAD,
+        # which interrupts the in-flight LLM opener request and silences the bot for
+        # the rest of the call.
+        await asyncio.sleep(1.0)
+        logger.info("Queuing greeting")
+        context.add_message({
+            "role": "user",
+            "content": "[call connected — greet the customer warmly with a natural opening sentence and ask how you can help]",
+        })
+        await worker.queue_frames([LLMRunFrame()])
 
-        # --- Events ---
+    @transport.event_handler("on_client_disconnected")
+    async def on_client_disconnected(_transport, _client):
+        logger.info("Inbound call disconnected")
+        await worker.cancel()
 
-        @transport.event_handler("on_client_connected")
-        async def on_client_connected(_transport, _client):
-            logger.info("Inbound call connected — queuing greeting")
-            context.add_message({
-                "role": "user",
-                "content": "[call connected — greet the customer warmly with a natural opening sentence and ask how you can help]",
-            })
-            await worker.queue_frames([LLMRunFrame()])
-
-        @transport.event_handler("on_client_disconnected")
-        async def on_client_disconnected(_transport, _client):
-            logger.info("Inbound call disconnected")
-            await worker.cancel()
-
-        # --- Run ---
-        runner = WorkerRunner(handle_sigint=False)
-        await runner.add_workers(worker)
-        await runner.run()
+    # --- Run ---
+    runner = WorkerRunner(handle_sigint=False)
+    await runner.add_workers(worker)
+    await runner.run()
