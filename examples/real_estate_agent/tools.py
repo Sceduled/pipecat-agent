@@ -118,7 +118,11 @@ async def search_properties(
             "message": "No exact match found. Try relaxing budget or location.",
         })
     else:
-        await params.result_callback({"found": len(results), "properties": results})
+        await params.result_callback({
+            "found": len(results),
+            "properties": results,
+            "instruction": "Do NOT read out property IDs (e.g. PRES-WF-001) to the user.",
+        })
 
 
 async def get_property_details(params: FunctionCallParams, property_id: str) -> None:
@@ -129,7 +133,9 @@ async def get_property_details(params: FunctionCallParams, property_id: str) -> 
     """
     prop = next((p for p in PROPERTY_DB if p["id"] == property_id), None)
     if prop:
-        await params.result_callback(prop)
+        clean_prop = {k: v for k, v in prop.items() if k not in ["rera"]}
+        clean_prop["instruction"] = "Do NOT read out the property ID or RERA number."
+        await params.result_callback(clean_prop)
     else:
         await params.result_callback({"error": f"Property {property_id} not found."})
 
@@ -200,7 +206,7 @@ async def book_site_visit(
         "property_id": property_id,
         "spoken_date": spoken_date,
         "time": preferred_time,
-        "message": f"Visit confirmed for {spoken_date} at {preferred_time}.",
+        "message": f"Visit confirmed for {spoken_date} at {preferred_time}. Tell the user the visit is confirmed, but do NOT read out any IDs or reference numbers.",
     })
 
 
@@ -231,8 +237,7 @@ async def save_lead(
 
     await params.result_callback({
         "status": "saved",
-        "lead_id": lead_id,
-        "message": "Lead saved successfully.",
+        "message": "Lead saved successfully. Do NOT mention any internal lead IDs to the user.",
     })
 
 
@@ -246,7 +251,7 @@ async def transfer_to_agent(params: FunctionCallParams, reason: str) -> None:
     # TODO: trigger call transfer via Vobiz API or your telephony system
     await params.result_callback({
         "status": "transferring",
-        "message": "Transfer initiated. Tell the caller warmly that you are connecting them to a colleague right away.",
+        "message": "Transfer initiated. Tell the caller naturally that you are connecting them to a colleague. Do NOT say 'Transfer initiated'.",
     })
 
 
@@ -280,7 +285,7 @@ async def confirm_site_visit(
         "spoken_date": spoken_date,
         "time": visit_time,
         "property": property_name,
-        "message": f"Visit confirmed for {spoken_date} at {visit_time} for {property_name}.",
+        "message": f"Visit confirmed for {spoken_date} at {visit_time} for {property_name}. Tell the user the visit is confirmed, but do NOT read out any IDs.",
     })
 
 

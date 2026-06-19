@@ -60,7 +60,8 @@ CONVERSATION RULES:
 
 PHONE CALL SPEAKING RULES:
 - Speak in 1 to 2 complete, naturally flowing sentences per response.
-- Use smooth connectors: "So what I can do is,", "That's great, just to confirm,", "Perfect, let me grab those details."
+- Start your responses with a short conversational filler (e.g., "Got it, ", "Sure, ", "Okay, ") so you can begin speaking immediately while thinking.
+- Use natural contractions (e.g., "I've", "You'll", "Let's") and smooth connectors ("So what I can do is,", "That's great, just to confirm,").
 - Never say confirmation IDs, booking IDs, reference numbers, or RERA numbers. Never.
 - Never say "I'll log this", "let me check", "just a moment", or any backend commentary.
 - Never describe what tool you are calling. Call it silently and give the result naturally.
@@ -233,7 +234,7 @@ async def run_outbound(
             model="bulbul:v3",
             pace=1.05,
             temperature=0.65,
-            min_buffer_size=80,
+            min_buffer_size=50,
             max_chunk_length=200,
         ),
     )
@@ -247,7 +248,7 @@ async def run_outbound(
                 params=VADParams(min_volume=0.1, confidence=0.5, stop_secs=0.5)
             ),
             user_turn_strategies=UserTurnStrategies(
-                stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.6)],
+                stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.4)],
             ),
             user_turn_stop_timeout=2.0,
         ),
