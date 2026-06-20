@@ -94,6 +94,8 @@ async def run_inbound(
     deepgram_api_key: str,
     openai_api_key: str,
     sarvam_api_key: str,
+    system_prompt: str,
+    voice: str,
 ) -> None:
     """Build and run the inbound call pipeline.
 
@@ -102,10 +104,9 @@ async def run_inbound(
         deepgram_api_key: Deepgram API key for STT.
         openai_api_key: OpenAI API key for LLM.
         sarvam_api_key: Sarvam API key for TTS.
+        system_prompt: DB-configured system prompt.
+        voice: DB-configured TTS voice.
     """
-    config = get_config()
-    system_prompt = config.system_prompt
-    tts_voice = config.voice
 
     # --- STT ---
     # nova-2-phonecall: tuned for G.711 µ-law telephone audio.
@@ -138,7 +139,7 @@ async def run_inbound(
     tts = SarvamTTSService(
         api_key=sarvam_api_key,
         settings=SarvamTTSService.Settings(
-            voice=tts_voice,
+            voice=voice,
             model="bulbul:v3",
             pace=1.05,
             temperature=0.65,

@@ -189,6 +189,8 @@ async def run_outbound(
     deepgram_api_key: str,
     openai_api_key: str,
     sarvam_api_key: str,
+    system_prompt: str,
+    voice: str,
 ) -> None:
     """Build and run the outbound call pipeline for a given session.
 
@@ -198,6 +200,8 @@ async def run_outbound(
         deepgram_api_key: Deepgram API key.
         openai_api_key: OpenAI API key for LLM.
         sarvam_api_key: Sarvam API key.
+        system_prompt: DB-configured system prompt.
+        voice: DB-configured TTS voice.
     """
     lead_context = pending_outbound_sessions.pop(session_token, {})
     if not lead_context:
@@ -205,12 +209,9 @@ async def run_outbound(
 
     call_type = lead_context.get("call_type", "follow_up")
     
-    config = get_config()
-    tts_voice = config.voice
-    
     # We combine the UI-configured persona with the dynamic lead context
-    system_prompt = (
-        f"{config.system_prompt}\n\n"
+    system_prompt_final = (
+        f"{system_prompt}\n\n"
         f"--- CALL CONTEXT ---\n"
         f"Lead Name: {lead_context.get('name', 'Unknown')}\n"
         f"Call Type: {call_type}\n"
@@ -234,7 +235,7 @@ async def run_outbound(
         api_key=openai_api_key,
         settings=OpenAILLMService.Settings(
             model="gpt-4o-mini",
-            system_instruction=system_prompt,
+            system_instruction=system_prompt_final,
         ),
     )
 
@@ -244,7 +245,7 @@ async def run_outbound(
     tts = SarvamTTSService(
         api_key=sarvam_api_key,
         settings=SarvamTTSService.Settings(
-            voice=tts_voice,
+            voice=voice,
             model="bulbul:v3",
             pace=1.05,
             temperature=0.65,

@@ -99,7 +99,21 @@ async def voice_xml_inbound(request: Request):
     Set this URL as your Vobiz DID webhook for inbound calls.
     Vobiz fetches this when a customer dials your number.
     """
-    ws_url = _ws_base_url(request) + "/ws/inbound"
+    to_number = request.query_params.get("To")
+    if not to_number and request.method == "POST":
+        form = await request.form()
+        to_number = form.get("To")
+
+    agent_id = ""
+    if to_number:
+        from database import SessionLocal, PhoneNumber
+        db = SessionLocal()
+        phone_record = db.query(PhoneNumber).filter(PhoneNumber.phone_number == to_number).first()
+        if phone_record:
+            agent_id = phone_record.agent_id
+        db.close()
+
+    ws_url = _ws_base_url(request) + f"/ws/inbound?agent_id={agent_id}"
     return PlainTextResponse(
         content=_stream_xml(ws_url),
         media_type="text/xml",
@@ -138,10 +152,21 @@ async def voice_xml_outbound_multilingual(request: Request, session: str = Query
 
 
 @app.websocket("/ws/inbound")
-async def ws_inbound(websocket: WebSocket):
+async def ws_inbound(websocket: WebSocket, agent_id: str = Query("")):
     """Handles every inbound call from Vobiz."""
+    from database import SessionLocal, Agent as DBAgent
+    
+    db = SessionLocal()
+    agent = db.query(DBAgent).filter(DBAgent.id == agent_id).first()
+    db.close()
+
+    if not agent:
+        logger.error(f"Agent {agent_id} not found in database for inbound call")
+        await websocket.close(code=4004, reason="Invalid agent_id")
+        return
+
     await websocket.accept()
-    logger.info("Inbound WebSocket accepted")
+    logger.info(f"Inbound WebSocket accepted for agent={agent.name}")
     try:
         transport = _make_transport(websocket)
         await run_inbound(
@@ -149,6 +174,8 @@ async def ws_inbound(websocket: WebSocket):
             deepgram_api_key=DEEPGRAM_API_KEY,
             openai_api_key=OPENAI_API_KEY,
             sarvam_api_key=SARVAM_API_KEY,
+            system_prompt=agent.system_prompt,
+            voice=agent.voice
         )
     except Exception as e:
         logger.exception(f"Inbound call pipeline error: {e}")
@@ -157,8 +184,31 @@ async def ws_inbound(websocket: WebSocket):
 @app.websocket("/ws/outbound")
 async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
     """Handles every outbound call from Vobiz. session carries the lead context."""
+    from database import SessionLocal, Agent as DBAgent
+    
+    context = pending_outbound_sessions.get(session)
+    if not context:
+        logger.error(f"No session found for token {session}")
+        await websocket.close(code=4004, reason="Invalid session")
+        return
+
+    agent_id = context.get("agent_id")
+    if not agent_id:
+        logger.error(f"No agent_id found for session {session}")
+        await websocket.close(code=4004, reason="Invalid agent_id")
+        return
+
+    db = SessionLocal()
+    agent = db.query(DBAgent).filter(DBAgent.id == agent_id).first()
+    db.close()
+
+    if not agent:
+        logger.error(f"Agent {agent_id} not found in database")
+        await websocket.close(code=4004, reason="Invalid agent_id")
+        return
+
     await websocket.accept()
-    logger.info(f"Outbound WebSocket accepted for session={session}")
+    logger.info(f"Outbound WebSocket accepted for session={session}, agent={agent.name}")
     try:
         transport = _make_transport(websocket)
         await run_outbound(
@@ -167,6 +217,8 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
             deepgram_api_key=DEEPGRAM_API_KEY,
             openai_api_key=OPENAI_API_KEY,
             sarvam_api_key=SARVAM_API_KEY,
+            system_prompt=agent.system_prompt,
+            voice=agent.voice
         )
     except Exception as e:
         logger.exception(f"Outbound call pipeline error: {e}")
@@ -175,8 +227,32 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
 @app.websocket("/ws/outbound-multilingual")
 async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(...)):
     """Handles every outbound multilingual call from Vobiz. session carries the lead context."""
+    from database import SessionLocal, Agent as DBAgent
+    
+    from multilingual_outbound_agent import pending_multilingual_sessions
+    context = pending_multilingual_sessions.get(session)
+    if not context:
+        logger.error(f"No multilingual session found for token {session}")
+        await websocket.close(code=4004, reason="Invalid session")
+        return
+
+    agent_id = context.get("agent_id")
+    if not agent_id:
+        logger.error(f"No agent_id found for session {session}")
+        await websocket.close(code=4004, reason="Invalid agent_id")
+        return
+
+    db = SessionLocal()
+    agent = db.query(DBAgent).filter(DBAgent.id == agent_id).first()
+    db.close()
+
+    if not agent:
+        logger.error(f"Agent {agent_id} not found in database")
+        await websocket.close(code=4004, reason="Invalid agent_id")
+        return
+
     await websocket.accept()
-    logger.info(f"Multilingual Outbound WebSocket accepted for session={session}")
+    logger.info(f"Multilingual Outbound WebSocket accepted for session={session}, agent={agent.name}")
     try:
         transport = _make_transport(websocket)
         await run_multilingual_outbound(
@@ -185,6 +261,8 @@ async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(..
             deepgram_api_key=DEEPGRAM_API_KEY,
             openai_api_key=OPENAI_API_KEY,
             sarvam_api_key=SARVAM_API_KEY,
+            system_prompt=agent.system_prompt,
+            voice=agent.voice
         )
     except Exception as e:
         logger.exception(f"Multilingual Outbound call pipeline error: {e}")
@@ -199,19 +277,12 @@ async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(..
 async def dial(request: Request):
     """
     Trigger an outbound call to a lead.
-
-    Request body:
-        {
-            "to": "+919876543210",          required
-            "name": "Rahul Sharma",         required
-            "call_type": "follow_up",       follow_up | visit_reminder | new_launch
-            "interest": "3BHK in Whitefield under 90L",
-            "visit_date": "2026-06-25",     for visit_reminder
-            "visit_time": "11:00 AM",       for visit_reminder
-            "property_name": "Prestige Tech Vista"
-        }
     """
     body = await request.json()
+
+    agent_id = body.get("agent_id")
+    if not agent_id:
+        return {"error": "'agent_id' field is required"}
 
     to_number = body.get("to")
     if not to_number:
@@ -224,6 +295,7 @@ async def dial(request: Request):
         "visit_date": body.get("visit_date", ""),
         "visit_time": body.get("visit_time", ""),
         "property_name": body.get("property_name", ""),
+        "agent_id": agent_id,
         "phone": to_number,
     }
 
@@ -251,6 +323,10 @@ async def dial_multilingual(request: Request):
     """
     body = await request.json()
 
+    agent_id = body.get("agent_id")
+    if not agent_id:
+        return {"error": "'agent_id' field is required"}
+
     to_number = body.get("to")
     if not to_number:
         return {"error": "'to' field is required"}
@@ -262,6 +338,7 @@ async def dial_multilingual(request: Request):
         "visit_date": body.get("visit_date", ""),
         "visit_time": body.get("visit_time", ""),
         "property_name": body.get("property_name", ""),
+        "agent_id": agent_id,
         "phone": to_number,
     }
 
@@ -283,22 +360,61 @@ async def dial_multilingual(request: Request):
 
 
 # ---------------------------------------------------------------------------
-# Config API endpoints
+# Agent APIs
 # ---------------------------------------------------------------------------
 
-from config_manager import get_config, save_config, AgentConfig
+from database import get_db, Agent as DBAgent
+from pydantic import BaseModel
+from fastapi import Depends
+from sqlalchemy.orm import Session
 
-@app.get("/api/config")
-async def api_get_config():
-    """Returns the current agent configuration."""
-    return get_config()
+class AgentCreate(BaseModel):
+    name: str
+    system_prompt: str
+    voice: str
 
-@app.post("/api/config")
-async def api_post_config(config: AgentConfig):
-    """Saves the agent configuration from the dashboard."""
-    if save_config(config):
-        return {"status": "success"}
-    return {"status": "error", "message": "Failed to save config"}, 500
+class AgentUpdate(BaseModel):
+    name: str
+    system_prompt: str
+    voice: str
+
+@app.get("/api/agents")
+async def get_all_agents(db: Session = Depends(get_db)):
+    agents = db.query(DBAgent).order_by(DBAgent.created_at.desc()).all()
+    return agents
+
+@app.get("/api/agents/{agent_id}")
+async def get_agent(agent_id: str, db: Session = Depends(get_db)):
+    agent = db.query(DBAgent).filter(DBAgent.id == agent_id).first()
+    if not agent:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return agent
+
+@app.post("/api/agents")
+async def create_agent(agent: AgentCreate, db: Session = Depends(get_db)):
+    db_agent = DBAgent(
+        name=agent.name,
+        system_prompt=agent.system_prompt,
+        voice=agent.voice
+    )
+    db.add(db_agent)
+    db.commit()
+    db.refresh(db_agent)
+    return db_agent
+
+@app.put("/api/agents/{agent_id}")
+async def update_agent(agent_id: str, agent: AgentUpdate, db: Session = Depends(get_db)):
+    db_agent = db.query(DBAgent).filter(DBAgent.id == agent_id).first()
+    if not db_agent:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Agent not found")
+    db_agent.name = agent.name
+    db_agent.system_prompt = agent.system_prompt
+    db_agent.voice = agent.voice
+    db.commit()
+    db.refresh(db_agent)
+    return db_agent
 
 
 # ---------------------------------------------------------------------------
