@@ -37,6 +37,8 @@ from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketTransport
 from pipecat.workers.runner import WorkerRunner
 
+from config_manager import get_config
+
 from tools import OUTBOUND_TOOLS
 
 # ---------------------------------------------------------------------------
@@ -205,7 +207,19 @@ async def run_multilingual_outbound(
         logger.warning(f"No session found for token {session_token}. Using empty context.")
 
     call_type = lead_context.get("call_type", "follow_up")
-    system_prompt = build_outbound_prompt(call_type, lead_context)
+    
+    config = get_config()
+    tts_voice = config.voice
+    
+    # We combine the UI-configured persona with the dynamic lead context
+    system_prompt = (
+        f"{config.system_prompt}\n\n"
+        f"--- CALL CONTEXT ---\n"
+        f"Lead Name: {lead_context.get('name', 'Unknown')}\n"
+        f"Call Type: {call_type}\n"
+        f"Interest: {lead_context.get('interest', 'Unknown')}\n"
+        f"{_BASE_RULES}"
+    )
 
     # --- STT ---
     stt = DeepgramSTTService(
@@ -233,7 +247,7 @@ async def run_multilingual_outbound(
     tts = SarvamTTSService(
         api_key=sarvam_api_key,
         settings=SarvamTTSService.Settings(
-            voice="priya",
+            voice=tts_voice,
             model="bulbul:v3",
             pace=1.05,
             temperature=0.65,

@@ -31,6 +31,8 @@ from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketTransport
 from pipecat.workers.runner import WorkerRunner
 
+from config_manager import get_config
+
 from tools import INBOUND_TOOLS
 
 # ---------------------------------------------------------------------------
@@ -101,6 +103,10 @@ async def run_inbound(
         openai_api_key: OpenAI API key for LLM.
         sarvam_api_key: Sarvam API key for TTS.
     """
+    config = get_config()
+    system_prompt = config.system_prompt
+    tts_voice = config.voice
+
     # --- STT ---
     # nova-2-phonecall: tuned for G.711 µ-law telephone audio.
     # endpointing=300ms: Deepgram fires final transcript 300ms after speech stops
@@ -120,7 +126,7 @@ async def run_inbound(
         api_key=openai_api_key,
         settings=OpenAILLMService.Settings(
             model="gpt-4o-mini",
-            system_instruction=INBOUND_SYSTEM_PROMPT,
+            system_instruction=system_prompt,
         ),
     )
 
@@ -132,7 +138,7 @@ async def run_inbound(
     tts = SarvamTTSService(
         api_key=sarvam_api_key,
         settings=SarvamTTSService.Settings(
-            voice="priya",
+            voice=tts_voice,
             model="bulbul:v3",
             pace=1.05,
             temperature=0.65,

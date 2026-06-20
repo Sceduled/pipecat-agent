@@ -28,6 +28,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, Request, WebSocket
 from fastapi.responses import PlainTextResponse
+from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
 from pipecat.serializers.vobiz import VobizFrameSerializer
@@ -66,7 +67,15 @@ async def lifespan(app: FastAPI):
     logger.info("Prestige Realty Voice Agent stopped")
 
 
-app = FastAPI(title="Prestige Realty Voice Agent", lifespan=lifespan)
+app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # ---------------------------------------------------------------------------
@@ -271,6 +280,25 @@ async def dial_multilingual(request: Request):
         answer_url=answer_url,
     )
     return {"status": "dialing_multilingual", "to": to_number, "session": session_token, "vobiz": result}
+
+
+# ---------------------------------------------------------------------------
+# Config API endpoints
+# ---------------------------------------------------------------------------
+
+from config_manager import get_config, save_config, AgentConfig
+
+@app.get("/api/config")
+async def api_get_config():
+    """Returns the current agent configuration."""
+    return get_config()
+
+@app.post("/api/config")
+async def api_post_config(config: AgentConfig):
+    """Saves the agent configuration from the dashboard."""
+    if save_config(config):
+        return {"status": "success"}
+    return {"status": "error", "message": "Failed to save config"}, 500
 
 
 # ---------------------------------------------------------------------------
