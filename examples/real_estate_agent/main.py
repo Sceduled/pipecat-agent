@@ -47,12 +47,12 @@ load_dotenv(Path(__file__).parent / ".env", override=True)
 # Config from environment
 # ---------------------------------------------------------------------------
 
-DEEPGRAM_API_KEY = os.environ["DEEPGRAM_API_KEY"]
-OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
-SARVAM_API_KEY = os.environ["SARVAM_API_KEY"]
-VOBIZ_AUTH_ID = os.environ["VOBIZ_AUTH_ID"]           # X-Auth-ID from console.vobiz.ai
-VOBIZ_AUTH_TOKEN = os.environ["VOBIZ_AUTH_TOKEN"]     # X-Auth-Token from console.vobiz.ai
-VOBIZ_FROM_NUMBER = os.environ["VOBIZ_PHONE_NUMBER"]   # Your Vobiz DID
+DEEPGRAM_API_KEY = os.environ.get("DEEPGRAM_API_KEY", "")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", os.environ.get("GROQ_API_KEY", ""))
+SARVAM_API_KEY = os.environ.get("SARVAM_API_KEY", "")
+VOBIZ_AUTH_ID = os.environ.get("VOBIZ_AUTH_ID", "")           # X-Auth-ID from console.vobiz.ai
+VOBIZ_AUTH_TOKEN = os.environ.get("VOBIZ_AUTH_TOKEN", "")     # X-Auth-Token from console.vobiz.ai
+VOBIZ_FROM_NUMBER = os.environ.get("VOBIZ_PHONE_NUMBER", "")   # Your Vobiz DID
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "").rstrip("/")  # e.g. https://xxxx.up.railway.app
 
 # ---------------------------------------------------------------------------
