@@ -28,6 +28,7 @@ class Agent(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     phone_numbers = relationship("PhoneNumber", back_populates="agent")
+    call_logs = relationship("CallLog", back_populates="agent")
 
 class PhoneNumber(Base):
     __tablename__ = "phone_numbers"
@@ -35,6 +36,16 @@ class PhoneNumber(Base):
     agent_id = Column(String, ForeignKey("agents.id"))
     
     agent = relationship("Agent", back_populates="phone_numbers")
+
+class CallLog(Base):
+    __tablename__ = "call_logs"
+    id = Column(String, primary_key=True, default=generate_uuid)
+    agent_id = Column(String, ForeignKey("agents.id"), nullable=False)
+    direction = Column(String, nullable=False) # "inbound" or "outbound"
+    caller_number = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    agent = relationship("Agent", back_populates="call_logs")
 
 Base.metadata.create_all(bind=engine)
 

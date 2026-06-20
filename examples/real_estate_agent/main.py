@@ -154,7 +154,7 @@ async def voice_xml_outbound_multilingual(request: Request, session: str = Query
 @app.websocket("/ws/inbound")
 async def ws_inbound(websocket: WebSocket, agent_id: str = Query("")):
     """Handles every inbound call from Vobiz."""
-    from database import SessionLocal, Agent as DBAgent
+    from database import SessionLocal, Agent as DBAgent, CallLog
     
     db = SessionLocal()
     agent = db.query(DBAgent).filter(DBAgent.id == agent_id).first()
@@ -167,6 +167,14 @@ async def ws_inbound(websocket: WebSocket, agent_id: str = Query("")):
 
     await websocket.accept()
     logger.info(f"Inbound WebSocket accepted for agent={agent.name}")
+    
+    # Log the call
+    db = SessionLocal()
+    call_log = CallLog(agent_id=agent_id, direction="inbound", caller_number="Inbound Caller")
+    db.add(call_log)
+    db.commit()
+    db.close()
+    
     try:
         transport = _make_transport(websocket)
         await run_inbound(
@@ -184,7 +192,7 @@ async def ws_inbound(websocket: WebSocket, agent_id: str = Query("")):
 @app.websocket("/ws/outbound")
 async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
     """Handles every outbound call from Vobiz. session carries the lead context."""
-    from database import SessionLocal, Agent as DBAgent
+    from database import SessionLocal, Agent as DBAgent, CallLog
     
     context = pending_outbound_sessions.get(session)
     if not context:
@@ -209,6 +217,15 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
 
     await websocket.accept()
     logger.info(f"Outbound WebSocket accepted for session={session}, agent={agent.name}")
+    
+    # Log the call
+    lead_phone = context.get("lead", {}).get("phone", "Unknown Lead")
+    db = SessionLocal()
+    call_log = CallLog(agent_id=agent_id, direction="outbound", caller_number=lead_phone)
+    db.add(call_log)
+    db.commit()
+    db.close()
+    
     try:
         transport = _make_transport(websocket)
         await run_outbound(
@@ -227,7 +244,7 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
 @app.websocket("/ws/outbound-multilingual")
 async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(...)):
     """Handles every outbound multilingual call from Vobiz. session carries the lead context."""
-    from database import SessionLocal, Agent as DBAgent
+    from database import SessionLocal, Agent as DBAgent, CallLog
     
     from multilingual_outbound_agent import pending_multilingual_sessions
     context = pending_multilingual_sessions.get(session)
@@ -253,6 +270,15 @@ async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(..
 
     await websocket.accept()
     logger.info(f"Multilingual Outbound WebSocket accepted for session={session}, agent={agent.name}")
+    
+    # Log the call
+    lead_phone = context.get("lead", {}).get("phone", "Unknown Lead")
+    db = SessionLocal()
+    call_log = CallLog(agent_id=agent_id, direction="outbound-multilingual", caller_number=lead_phone)
+    db.add(call_log)
+    db.commit()
+    db.close()
+    
     try:
         transport = _make_transport(websocket)
         await run_multilingual_outbound(
@@ -363,9 +389,9 @@ async def dial_multilingual(request: Request):
 # Agent APIs
 # ---------------------------------------------------------------------------
 
-from database import get_db, Agent as DBAgent
+from database import get_db, Agent as DBAgent, PhoneNumber, CallLog
 from pydantic import BaseModel
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 class AgentCreate(BaseModel):
@@ -377,6 +403,9 @@ class AgentUpdate(BaseModel):
     name: str
     system_prompt: str
     voice: str
+
+class PhoneCreate(BaseModel):
+    phone_number: str
 
 @app.get("/api/agents")
 async def get_all_agents(db: Session = Depends(get_db)):
@@ -415,6 +444,49 @@ async def update_agent(agent_id: str, agent: AgentUpdate, db: Session = Depends(
     db.commit()
     db.refresh(db_agent)
     return db_agent
+
+@app.get("/api/agents/{agent_id}/phones")
+async def get_agent_phones(agent_id: str, db: Session = Depends(get_db)):
+    agent = db.query(DBAgent).filter(DBAgent.id == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    phones = db.query(PhoneNumber).filter(PhoneNumber.agent_id == agent_id).all()
+    return phones
+
+@app.post("/api/agents/{agent_id}/phones")
+async def add_agent_phone(agent_id: str, phone: PhoneCreate, db: Session = Depends(get_db)):
+    agent = db.query(DBAgent).filter(DBAgent.id == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    # Check if number already mapped
+    existing = db.query(PhoneNumber).filter(PhoneNumber.phone_number == phone.phone_number).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Phone number already assigned")
+        
+    db_phone = PhoneNumber(phone_number=phone.phone_number, agent_id=agent_id)
+    db.add(db_phone)
+    db.commit()
+    db.refresh(db_phone)
+    return db_phone
+
+@app.delete("/api/agents/{agent_id}/phones/{phone_number}")
+async def remove_agent_phone(agent_id: str, phone_number: str, db: Session = Depends(get_db)):
+    db_phone = db.query(PhoneNumber).filter(PhoneNumber.phone_number == phone_number, PhoneNumber.agent_id == agent_id).first()
+    if not db_phone:
+        raise HTTPException(status_code=404, detail="Phone number mapping not found")
+    db.delete(db_phone)
+    db.commit()
+    return {"status": "deleted"}
+
+@app.get("/api/agents/{agent_id}/logs")
+async def get_agent_logs(agent_id: str, db: Session = Depends(get_db)):
+    agent = db.query(DBAgent).filter(DBAgent.id == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    logs = db.query(CallLog).filter(CallLog.agent_id == agent_id).order_by(CallLog.created_at.desc()).all()
+    return logs
+
 
 
 # ---------------------------------------------------------------------------
