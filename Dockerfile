@@ -23,7 +23,7 @@ RUN uv sync --no-dev \
     --extra groq \
     --extra sarvam \
     --extra websocket \
-    && uv pip install "uvicorn[standard]" aiohttp python-dotenv
+    && uv pip install "uvicorn[standard]" aiohttp python-dotenv sqlalchemy psycopg2-binary
 
 # Copy the real estate agent
 COPY examples/real_estate_agent/ ./examples/real_estate_agent/
@@ -31,4 +31,4 @@ COPY examples/real_estate_agent/ ./examples/real_estate_agent/
 ENV PORT=8080
 EXPOSE 8080
 
-CMD ["uv", "run", "uvicorn", "main:app", "--app-dir", "/app/examples/real_estate_agent", "--host", "0.0.0.0", "--port", "8080"]
+CMD uv run uvicorn main:app --app-dir /app/examples/real_estate_agent --host 0.0.0.0 --port ${PORT:-8080}
