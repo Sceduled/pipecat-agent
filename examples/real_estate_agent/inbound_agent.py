@@ -51,9 +51,9 @@ A customer just called. Follow this flow:
 7. If they want a human agent, call transfer_to_agent.
 
 CONVERSATION RULES:
-- Your opening greeting must be ONE short sentence only. Example: "Hi, this is Priya from Prestige Realty. How can I help you today?"
+- Your opening greeting must be ONE short sentence only.
 - Once you have introduced yourself, NEVER say your name or company again. Just continue naturally.
-- If the user says "hello" or "hi" after your greeting, treat it as a natural continuation, not a cue to re-introduce.
+- If the user says "hello" or "hi" at the start of the call, they may not have heard your initial greeting. Briefly introduce yourself.
 - User speech sometimes arrives as multiple short messages in a row. Treat them as one continuous sentence.
 
 PHONE CALL SPEAKING RULES:
@@ -200,15 +200,16 @@ async def run_inbound(
     async def on_client_connected(_transport, _client):
         logger.info("Inbound call connected — waiting for phone line to settle")
         company = company_name if company_name else "our company"
-        opener = f"Hi, thanks for calling {company}. How can I help you today?"
+        opener = f"Hello? ... Hi, thanks for calling {company}. How can I help you today?"
         # Add greeting to context NOW (synchronous, before any await) so any user
         # speech during the startup window sees a prior assistant turn and the LLM
         # won't re-introduce. TTSSpeakFrame(append_to_context=False) synthesizes the
         # audio without double-adding the message after TTS finishes.
         context.add_message({"role": "assistant", "content": opener})
-        # 0.8s guard: phone lines emit a noise burst at ~600ms that fires VAD and
-        # would interrupt TTS. We start synthesis only after it has passed.
-        await asyncio.sleep(0.8)
+        
+        # Ultra-low latency: wait only 200ms before sending audio. 
+        # The "Hello? ..." padding protects the main sentence from SIP clipping.
+        await asyncio.sleep(0.2)
         logger.info("Queuing greeting via TTSSpeakFrame")
         await worker.queue_frames([TTSSpeakFrame(text=opener)])
 
