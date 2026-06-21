@@ -260,8 +260,8 @@ async def run_outbound(
     )
 
     # --- Context + aggregator ---
-    from tools import OUTBOUND_TOOLS, update_call_outcome, end_call
-    tools_to_use = OUTBOUND_TOOLS if niche == "real_estate" else [update_call_outcome, end_call]
+    from tools import OUTBOUND_TOOLS, update_call_outcome
+    tools_to_use = OUTBOUND_TOOLS if niche == "real_estate" else [update_call_outcome]
     context = LLMContext(tools=tools_to_use)
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
