@@ -289,7 +289,13 @@ function App() {
                   </div>
                   <div>
                     <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem' }}>{agent.name}</h3>
-                    <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>ID: {agent.id.slice(0,8)}...</p>
+                    <p 
+                      style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'copy', fontFamily: 'monospace' }}
+                      title="Click to copy ID"
+                      onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(agent.id); alert('Agent ID copied!'); }}
+                    >
+                      ID: {agent.id}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -394,7 +400,13 @@ function App() {
                 value={config.name}
                 onChange={e => setConfig({ ...config, name: e.target.value })}
               />
-              <p style={{ margin: '0.5rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Agent ID: {selectedAgentId}</p>
+              <p 
+                style={{ margin: '0.5rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.85rem', cursor: 'copy', fontFamily: 'monospace', display: 'inline-block' }}
+                title="Click to copy ID"
+                onClick={() => { navigator.clipboard.writeText(selectedAgentId); alert('Agent ID copied!'); }}
+              >
+                Agent ID: {selectedAgentId} (click to copy)
+              </p>
             </div>
 
             {activeTab === 'config' && (
