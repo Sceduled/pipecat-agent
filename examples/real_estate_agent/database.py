@@ -51,6 +51,22 @@ class CallLog(Base):
 
 Base.metadata.create_all(bind=engine)
 
+from sqlalchemy import text
+def auto_migrate():
+    try:
+        with engine.begin() as conn:
+            try:
+                conn.execute(text("ALTER TABLE agents ADD COLUMN niche VARCHAR DEFAULT 'custom'"))
+            except Exception:
+                pass
+            try:
+                conn.execute(text("ALTER TABLE agents ADD COLUMN agent_type VARCHAR DEFAULT 'inbound'"))
+            except Exception:
+                pass
+    except Exception as e:
+        print("Auto-migration failed:", e)
+
+auto_migrate()
 def get_db():
     db = SessionLocal()
     try:
