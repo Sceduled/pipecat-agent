@@ -55,22 +55,18 @@ Base.metadata.create_all(bind=engine)
 
 from sqlalchemy import text
 def auto_migrate():
-    try:
-        with engine.begin() as conn:
-            try:
-                conn.execute(text("ALTER TABLE agents ADD COLUMN agent_type VARCHAR NOT NULL DEFAULT 'inbound'"))
-            except Exception: pass
-            try:
-                conn.execute(text("ALTER TABLE agents ADD COLUMN niche VARCHAR NOT NULL DEFAULT 'custom'"))
-            except Exception: pass
-            try:
-                conn.execute(text("ALTER TABLE agents ADD COLUMN company_name VARCHAR NOT NULL DEFAULT ''"))
-            except Exception: pass
-            try:
-                conn.execute(text("ALTER TABLE agents ADD COLUMN knowledge_base TEXT NOT NULL DEFAULT ''"))
-            except Exception: pass
-    except Exception as e:
-        print("Auto-migration failed:", e)
+    queries = [
+        "ALTER TABLE agents ADD COLUMN agent_type VARCHAR NOT NULL DEFAULT 'inbound'",
+        "ALTER TABLE agents ADD COLUMN niche VARCHAR NOT NULL DEFAULT 'custom'",
+        "ALTER TABLE agents ADD COLUMN company_name VARCHAR NOT NULL DEFAULT ''",
+        "ALTER TABLE agents ADD COLUMN knowledge_base TEXT NOT NULL DEFAULT ''"
+    ]
+    for q in queries:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(q))
+        except Exception:
+            pass
 
 auto_migrate()
 def get_db():
