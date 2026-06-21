@@ -553,11 +553,22 @@ function App() {
                     {logs.length === 0 ? (
                       <tr><td colSpan={3} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No calls logged yet</td></tr>
                     ) : logs.map(log => (
-                      <tr key={log.id}>
-                        <td>{new Date(log.created_at).toLocaleString()}</td>
-                        <td><span className={`badge ${log.direction.includes('inbound') ? 'inbound' : 'outbound'}`}>{log.direction}</span></td>
-                        <td><div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><PhoneCall size={16} color="var(--text-secondary)" /> {log.caller_number}</div></td>
-                      </tr>
+                      <React.Fragment key={log.id}>
+                        <tr>
+                          <td style={{ borderBottom: log.transcript ? 'none' : undefined }}>{new Date(log.created_at).toLocaleString()}</td>
+                          <td style={{ borderBottom: log.transcript ? 'none' : undefined }}><span className={`badge ${log.direction.includes('inbound') ? 'inbound' : 'outbound'}`}>{log.direction}</span></td>
+                          <td style={{ borderBottom: log.transcript ? 'none' : undefined }}><div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><PhoneCall size={16} color="var(--text-secondary)" /> {log.caller_number}</div></td>
+                        </tr>
+                        {log.transcript && (
+                          <tr>
+                            <td colSpan={3} style={{ paddingTop: 0 }}>
+                              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', fontSize: '0.85rem', whiteSpace: 'pre-wrap', fontFamily: 'monospace', color: 'var(--text-secondary)', maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--glass-border)' }}>
+                                {log.transcript}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>

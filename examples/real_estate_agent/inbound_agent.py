@@ -222,3 +222,5 @@ async def run_inbound(
     runner = WorkerRunner(handle_sigint=False)
     await runner.add_workers(worker)
     await runner.run()
+    
+    return context.get_messages()

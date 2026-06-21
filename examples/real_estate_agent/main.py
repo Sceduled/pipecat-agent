@@ -177,7 +177,7 @@ async def ws_inbound(websocket: WebSocket, agent_id: str = Query("")):
     
     try:
         transport = _make_transport(websocket)
-        await run_inbound(
+        messages = await run_inbound(
             transport=transport,
             deepgram_api_key=DEEPGRAM_API_KEY,
             openai_api_key=OPENAI_API_KEY,
@@ -188,6 +188,17 @@ async def ws_inbound(websocket: WebSocket, agent_id: str = Query("")):
             knowledge_base=agent.knowledge_base,
             niche=agent.niche
         )
+        
+        # Save transcript
+        if messages:
+            transcript = "\n".join([f"{msg['role'].capitalize()}: {msg.get('content', '')}" for msg in messages if msg.get("role") in ["user", "assistant"]])
+            db = SessionLocal()
+            db_log = db.query(CallLog).filter(CallLog.id == call_log.id).first()
+            if db_log:
+                db_log.transcript = transcript
+                db.commit()
+            db.close()
+            
     except Exception as e:
         import traceback
         with open("crash.log", "a") as f:
@@ -235,7 +246,7 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
     
     try:
         transport = _make_transport(websocket)
-        await run_outbound(
+        messages = await run_outbound(
             transport=transport,
             session_token=session,
             deepgram_api_key=DEEPGRAM_API_KEY,
@@ -247,6 +258,16 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
             knowledge_base=agent.knowledge_base,
             niche=agent.niche
         )
+        
+        if messages:
+            transcript = "\n".join([f"{msg['role'].capitalize()}: {msg.get('content', '')}" for msg in messages if msg.get("role") in ["user", "assistant"]])
+            db = SessionLocal()
+            db_log = db.query(CallLog).filter(CallLog.id == call_log.id).first()
+            if db_log:
+                db_log.transcript = transcript
+                db.commit()
+            db.close()
+            
     except Exception as e:
         import traceback
         with open("crash.log", "a") as f:
@@ -294,7 +315,7 @@ async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(..
     
     try:
         transport = _make_transport(websocket)
-        await run_multilingual_outbound(
+        messages = await run_multilingual_outbound(
             transport=transport,
             session_token=session,
             deepgram_api_key=DEEPGRAM_API_KEY,
@@ -306,10 +327,20 @@ async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(..
             knowledge_base=agent.knowledge_base,
             niche=agent.niche
         )
+        
+        if messages:
+            transcript = "\n".join([f"{msg['role'].capitalize()}: {msg.get('content', '')}" for msg in messages if msg.get("role") in ["user", "assistant"]])
+            db = SessionLocal()
+            db_log = db.query(CallLog).filter(CallLog.id == call_log.id).first()
+            if db_log:
+                db_log.transcript = transcript
+                db.commit()
+            db.close()
+            
     except Exception as e:
         import traceback
         with open("crash.log", "a") as f:
-            f.write("MULTILINGUAL ERROR:\n" + traceback.format_exc() + "\n")
+            f.write("MULTILINGUAL OUTBOUND ERROR:\n" + traceback.format_exc() + "\n")
         logger.exception(f"Multilingual Outbound call pipeline error: {e}")
 
 

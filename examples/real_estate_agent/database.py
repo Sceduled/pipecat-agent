@@ -47,6 +47,7 @@ class CallLog(Base):
     agent_id = Column(String, ForeignKey("agents.id"), nullable=False)
     direction = Column(String, nullable=False) # "inbound" or "outbound"
     caller_number = Column(String, nullable=False)
+    transcript = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     agent = relationship("Agent", back_populates="call_logs")
@@ -59,7 +60,8 @@ def auto_migrate():
         "ALTER TABLE agents ADD COLUMN agent_type VARCHAR NOT NULL DEFAULT 'inbound'",
         "ALTER TABLE agents ADD COLUMN niche VARCHAR NOT NULL DEFAULT 'custom'",
         "ALTER TABLE agents ADD COLUMN company_name VARCHAR NOT NULL DEFAULT ''",
-        "ALTER TABLE agents ADD COLUMN knowledge_base TEXT NOT NULL DEFAULT ''"
+        "ALTER TABLE agents ADD COLUMN knowledge_base TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE call_logs ADD COLUMN transcript TEXT"
     ]
     for q in queries:
         try:
