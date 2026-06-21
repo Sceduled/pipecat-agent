@@ -220,8 +220,6 @@ function App() {
       const data = await res.json();
       if (data.status === 'dialing' || data.status === 'dialing_multilingual') {
         alert('Call initiated successfully! Check Call Logs in a moment.');
-        setDialPhone('');
-        setDialName('');
       } else {
         alert('Failed: ' + (data.error || JSON.stringify(data)));
       }
