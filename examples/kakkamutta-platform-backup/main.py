@@ -396,13 +396,11 @@ from sqlalchemy.orm import Session
 
 class AgentCreate(BaseModel):
     name: str
-    niche: str
     system_prompt: str
     voice: str
 
 class AgentUpdate(BaseModel):
     name: str
-    niche: str
     system_prompt: str
     voice: str
 
@@ -413,41 +411,6 @@ class PhoneCreate(BaseModel):
 async def get_all_agents(db: Session = Depends(get_db)):
     agents = db.query(DBAgent).order_by(DBAgent.created_at.desc()).all()
     return agents
-
-@app.get("/api/templates")
-async def get_templates():
-    return [
-        {
-            "id": "real_estate",
-            "name": "Real Estate Agent",
-            "description": "Qualify buyers, schedule property tours, and answer FAQs.",
-            "prompt": "You are a warm and professional Real Estate Voice Assistant..."
-        },
-        {
-            "id": "healthcare",
-            "name": "Healthcare Clinic",
-            "description": "Book appointments, answer clinic hours, and assist patients.",
-            "prompt": "You are a helpful and empathetic Medical Receptionist. Your job is to assist patients with booking appointments, checking clinic hours, and answering general questions."
-        },
-        {
-            "id": "recruitment",
-            "name": "Recruitment Screener",
-            "description": "Screen candidates, ask preliminary interview questions.",
-            "prompt": "You are an AI Recruitment Screener. Your job is to call candidates, ask them a set of preliminary interview questions regarding their experience, and note down their responses."
-        },
-        {
-            "id": "customer_support",
-            "name": "Customer Support",
-            "description": "Handle customer inquiries, refunds, and general support.",
-            "prompt": "You are a polite and helpful Customer Support Agent. Your goal is to help customers resolve issues, process refunds, and answer FAQs about our products."
-        },
-        {
-            "id": "custom",
-            "name": "Custom Agent",
-            "description": "Start from scratch and build your own custom voice AI.",
-            "prompt": "You are a helpful AI assistant."
-        }
-    ]
 
 @app.get("/api/agents/{agent_id}")
 async def get_agent(agent_id: str, db: Session = Depends(get_db)):
@@ -461,7 +424,6 @@ async def get_agent(agent_id: str, db: Session = Depends(get_db)):
 async def create_agent(agent: AgentCreate, db: Session = Depends(get_db)):
     db_agent = DBAgent(
         name=agent.name,
-        niche=agent.niche,
         system_prompt=agent.system_prompt,
         voice=agent.voice
     )
@@ -477,7 +439,6 @@ async def update_agent(agent_id: str, agent: AgentUpdate, db: Session = Depends(
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Agent not found")
     db_agent.name = agent.name
-    db_agent.niche = agent.niche
     db_agent.system_prompt = agent.system_prompt
     db_agent.voice = agent.voice
     db.commit()

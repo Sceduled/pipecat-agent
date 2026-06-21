@@ -1,0 +1,10 @@
+pipecat-ai[silero,openai,deepgram,sarvam]
+fastapi
+uvicorn
+python-dotenv
+sqlalchemy
+psycopg2-binary
+pydantic
+loguru
+requests
+aiohttp

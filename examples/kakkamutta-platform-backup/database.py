@@ -23,7 +23,6 @@ class Agent(Base):
     __tablename__ = "agents"
     id = Column(String, primary_key=True, default=generate_uuid)
     name = Column(String, nullable=False)
-    niche = Column(String, nullable=False, default="custom")
     system_prompt = Column(Text, nullable=False)
     voice = Column(String, nullable=False, default="priya")
     created_at = Column(DateTime, default=datetime.utcnow)
