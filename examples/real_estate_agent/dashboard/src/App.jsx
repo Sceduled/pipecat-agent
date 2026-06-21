@@ -1,23 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { Bot, Save, CheckCircle2, Plus, User, Phone, PhoneCall, LayoutGrid, Settings, Trash2, ArrowLeft } from 'lucide-react';
+import { Bot, Save, CheckCircle2, Plus, User, Phone, PhoneCall, PhoneOutgoing, LayoutGrid, Settings, Trash2, ArrowLeft } from 'lucide-react';
 import './index.css';
 
 const API_BASE = 'https://kakamutta-production.up.railway.app/api';
+// Use local endpoint for dialers because they are not under /api currently in main.py
+const DIAL_BASE = 'https://kakamutta-production.up.railway.app';
 
 function App() {
-  const [view, setView] = useState('library'); // 'library', 'templates', 'builder'
+  const [view, setView] = useState('library'); // 'library', 'type_select', 'templates', 'builder'
   
   const [agents, setAgents] = useState([]);
   const [templates, setTemplates] = useState([]);
   
+  const [selectedType, setSelectedType] = useState('inbound'); // 'inbound', 'outbound', 'multilingual_outbound'
   const [selectedAgentId, setSelectedAgentId] = useState(null);
-  const [config, setConfig] = useState({ name: '', niche: 'custom', system_prompt: '', voice: 'priya' });
+  const [config, setConfig] = useState({ name: '', niche: 'custom', agent_type: 'inbound', system_prompt: '', voice: 'priya' });
   
-  const [activeTab, setActiveTab] = useState('config'); // 'config', 'phones', 'logs'
+  const [activeTab, setActiveTab] = useState('config'); // 'config', 'phones', 'dialer', 'logs'
   const [phones, setPhones] = useState([]);
   const [newPhone, setNewPhone] = useState('');
   const [logs, setLogs] = useState([]);
   
+  // Dialer state
+  const [dialPhone, setDialPhone] = useState('');
+  const [dialName, setDialName] = useState('');
+  const [isDialing, setIsDialing] = useState(false);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState(false);
@@ -81,6 +89,7 @@ function App() {
     setConfig({
       name: agent.name,
       niche: agent.niche,
+      agent_type: agent.agent_type || 'inbound', // Fallback for old agents
       system_prompt: agent.system_prompt,
       voice: agent.voice
     });
@@ -93,6 +102,7 @@ function App() {
       const newAgent = {
         name: `New ${template.name}`,
         niche: template.id,
+        agent_type: selectedType,
         system_prompt: template.prompt,
         voice: 'priya'
       };
@@ -160,9 +170,42 @@ function App() {
     }
   };
 
+  const handleDialOut = async () => {
+    if (!dialPhone) {
+      alert('Please enter a phone number to call.');
+      return;
+    }
+    setIsDialing(true);
+    const endpoint = config.agent_type === 'multilingual_outbound' ? '/dial-multilingual' : '/dial';
+    try {
+      const res = await fetch(`${DIAL_BASE}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agent_id: selectedAgentId,
+          to: dialPhone,
+          name: dialName
+        })
+      });
+      const data = await res.json();
+      if (data.status === 'dialing' || data.status === 'dialing_multilingual') {
+        alert('Call initiated successfully! Check Call Logs in a moment.');
+        setDialPhone('');
+        setDialName('');
+      } else {
+        alert('Failed: ' + (data.error || JSON.stringify(data)));
+      }
+    } catch (err) {
+      alert('Error triggering call: ' + err);
+    }
+    setIsDialing(false);
+  };
+
   if (isLoading) {
     return <div className="dashboard-container"><div style={{ textAlign: 'center', marginTop: '20vh' }}>Loading platform...</div></div>;
   }
+
+  const isInbound = config.agent_type === 'inbound';
 
   return (
     <div className="dashboard-container">
@@ -173,12 +216,12 @@ function App() {
         </div>
         <div className="nav-actions">
           {view === 'library' && (
-            <button className="btn-primary" onClick={() => setView('templates')}>
+            <button className="btn-primary" onClick={() => setView('type_select')}>
               <Plus size={18} /> Create Agent
             </button>
           )}
           {view !== 'library' && (
-            <button className="btn-secondary" onClick={() => setView('library')}>
+            <button className="btn-secondary" onClick={() => { setView('library'); setActiveTab('config'); }}>
               <LayoutGrid size={18} /> Back to Library
             </button>
           )}
@@ -195,7 +238,7 @@ function App() {
               <Bot size={48} color="var(--text-secondary)" style={{ marginBottom: '1rem' }} />
               <h3>No agents yet</h3>
               <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Create your first voice agent to get started.</p>
-              <button className="btn-primary" style={{ margin: '0 auto' }} onClick={() => setView('templates')}>
+              <button className="btn-primary" style={{ margin: '0 auto' }} onClick={() => setView('type_select')}>
                 <Plus size={18} /> Create Agent
               </button>
             </div>
@@ -205,11 +248,16 @@ function App() {
                 <div key={agent.id} className="agent-card" onClick={() => handleOpenAgent(agent)}>
                   <div className="agent-card-header">
                     <div className="agent-card-icon">
-                      <Bot size={24} />
+                      {agent.agent_type === 'inbound' ? <Phone size={24} /> : <PhoneOutgoing size={24} />}
                     </div>
-                    <span className="badge outbound" style={{ textTransform: 'capitalize' }}>
-                      {agent.niche.replace('_', ' ')}
-                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                      <span className={`badge ${agent.agent_type === 'inbound' ? 'inbound' : 'outbound'}`} style={{ textTransform: 'capitalize' }}>
+                        {agent.agent_type ? agent.agent_type.replace('_', ' ') : 'Inbound'}
+                      </span>
+                      <span className="badge" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }}>
+                        {agent.niche.replace('_', ' ')}
+                      </span>
+                    </div>
                   </div>
                   <div>
                     <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem' }}>{agent.name}</h3>
@@ -222,12 +270,48 @@ function App() {
         </div>
       )}
 
-      {view === 'templates' && (
+      {view === 'type_select' && (
         <div>
           <button className="btn-secondary" onClick={() => setView('library')} style={{ marginBottom: '2rem', border: 'none', paddingLeft: 0 }}>
+            <ArrowLeft size={18} /> Cancel
+          </button>
+          <h2>Step 1: Select Agent Type</h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>What kind of core pipeline should this agent use?</p>
+          
+          <div className="template-grid">
+            <div className="template-card" onClick={() => { setSelectedType('inbound'); setView('templates'); }}>
+              <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', width: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
+                <Phone size={20} />
+              </div>
+              <h3>Inbound Agent</h3>
+              <p>Receives incoming calls. You will map a phone number to this agent to route calls to it.</p>
+            </div>
+            
+            <div className="template-card" onClick={() => { setSelectedType('outbound'); setView('templates'); }}>
+              <div style={{ background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent)', width: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
+                <PhoneOutgoing size={20} />
+              </div>
+              <h3>Outbound Agent</h3>
+              <p>Makes outgoing calls to leads. You can trigger calls manually from the dashboard.</p>
+            </div>
+
+            <div className="template-card" onClick={() => { setSelectedType('multilingual_outbound'); setView('templates'); }}>
+              <div style={{ background: 'rgba(236, 72, 153, 0.1)', color: '#ec4899', width: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
+                <Bot size={20} />
+              </div>
+              <h3>Multilingual Outbound</h3>
+              <p>Outbound calling with automatic language detection and switching capabilities.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {view === 'templates' && (
+        <div>
+          <button className="btn-secondary" onClick={() => setView('type_select')} style={{ marginBottom: '2rem', border: 'none', paddingLeft: 0 }}>
             <ArrowLeft size={18} /> Back
           </button>
-          <h2>Choose a Template</h2>
+          <h2>Step 2: Choose a Persona Template</h2>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Start with a pre-configured persona or build from scratch.</p>
           
           <div className="template-grid">
@@ -250,16 +334,32 @@ function App() {
             <button className={`tab-btn ${activeTab === 'config' ? 'active' : ''}`} onClick={() => setActiveTab('config')}>
               <Settings size={18} /> Configuration
             </button>
-            <button className={`tab-btn ${activeTab === 'phones' ? 'active' : ''}`} onClick={() => setActiveTab('phones')}>
-              <Phone size={18} /> Phone Numbers
-            </button>
+            
+            {isInbound ? (
+              <button className={`tab-btn ${activeTab === 'phones' ? 'active' : ''}`} onClick={() => setActiveTab('phones')}>
+                <Phone size={18} /> Phone Numbers
+              </button>
+            ) : (
+              <button className={`tab-btn ${activeTab === 'dialer' ? 'active' : ''}`} onClick={() => setActiveTab('dialer')}>
+                <PhoneOutgoing size={18} /> Dialer
+              </button>
+            )}
+
             <button className={`tab-btn ${activeTab === 'logs' ? 'active' : ''}`} onClick={() => setActiveTab('logs')}>
-              <List size={18} /> Call Logs
+              <PhoneCall size={18} /> Call Logs
             </button>
           </div>
 
           <div className="builder-main">
             <div style={{ marginBottom: '2rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <span className={`badge ${isInbound ? 'inbound' : 'outbound'}`} style={{ textTransform: 'capitalize' }}>
+                  {config.agent_type.replace('_', ' ')}
+                </span>
+                <span className="badge" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }}>
+                  {config.niche.replace('_', ' ')}
+                </span>
+              </div>
               <input 
                 className="text-input"
                 style={{ fontSize: '1.5rem', fontWeight: 'bold', background: 'transparent', border: 'none', borderBottom: '1px dashed var(--glass-border)', borderRadius: 0, padding: '0.5rem 0' }}
@@ -297,7 +397,7 @@ function App() {
               </div>
             )}
 
-            {activeTab === 'phones' && (
+            {activeTab === 'phones' && isInbound && (
               <div>
                 <h3>Inbound Routing</h3>
                 <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>Map your Vobiz DIDs to this agent. Incoming calls to these numbers will automatically trigger this specific persona.</p>
@@ -332,6 +432,27 @@ function App() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {activeTab === 'dialer' && !isInbound && (
+              <div>
+                <h3>Manual Dialer</h3>
+                <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>Trigger an outbound call using this agent's pipeline and persona.</p>
+                
+                <div className="form-group">
+                  <label>Lead Name (Optional)</label>
+                  <input className="text-input" placeholder="John Doe" value={dialName} onChange={e => setDialName(e.target.value)} />
+                </div>
+                
+                <div className="form-group">
+                  <label>Phone Number (Required)</label>
+                  <input className="text-input" placeholder="+1234567890" value={dialPhone} onChange={e => setDialPhone(e.target.value)} />
+                </div>
+
+                <button className="btn-primary" onClick={handleDialOut} disabled={isDialing || !dialPhone} style={{ marginTop: '1rem', width: '100%', justifyContent: 'center', height: '50px' }}>
+                  <PhoneOutgoing size={18} /> {isDialing ? 'Initiating Call...' : 'Call Lead Now'}
+                </button>
               </div>
             )}
 

@@ -397,12 +397,14 @@ from sqlalchemy.orm import Session
 class AgentCreate(BaseModel):
     name: str
     niche: str
+    agent_type: str
     system_prompt: str
     voice: str
 
 class AgentUpdate(BaseModel):
     name: str
     niche: str
+    agent_type: str
     system_prompt: str
     voice: str
 
@@ -462,6 +464,7 @@ async def create_agent(agent: AgentCreate, db: Session = Depends(get_db)):
     db_agent = DBAgent(
         name=agent.name,
         niche=agent.niche,
+        agent_type=agent.agent_type,
         system_prompt=agent.system_prompt,
         voice=agent.voice
     )
@@ -478,6 +481,7 @@ async def update_agent(agent_id: str, agent: AgentUpdate, db: Session = Depends(
         raise HTTPException(status_code=404, detail="Agent not found")
     db_agent.name = agent.name
     db_agent.niche = agent.niche
+    db_agent.agent_type = agent.agent_type
     db_agent.system_prompt = agent.system_prompt
     db_agent.voice = agent.voice
     db.commit()

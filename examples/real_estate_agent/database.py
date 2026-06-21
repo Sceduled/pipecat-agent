@@ -24,6 +24,7 @@ class Agent(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     name = Column(String, nullable=False)
     niche = Column(String, nullable=False, default="custom")
+    agent_type = Column(String, nullable=False, default="inbound")
     system_prompt = Column(Text, nullable=False)
     voice = Column(String, nullable=False, default="priya")
     created_at = Column(DateTime, default=datetime.utcnow)
