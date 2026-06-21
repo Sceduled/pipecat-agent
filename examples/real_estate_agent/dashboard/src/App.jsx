@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Bot, Save, CheckCircle2, Plus, User, Phone, PhoneCall, PhoneOutgoing, LayoutGrid, Settings, Trash2, ArrowLeft } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import './index.css';
 
 const API_BASE = 'https://kakamutta-production.up.railway.app/api';
@@ -236,44 +237,79 @@ function App() {
   const isInbound = config.agent_type === 'inbound';
 
   return (
-    <div className="dashboard-container">
-      <nav className="top-nav">
+    <>
+      <div className="app-background">
+        <div className="mesh-blob blob-1"></div>
+        <div className="mesh-blob blob-2"></div>
+        <div className="mesh-blob blob-3"></div>
+      </div>
+
+      <div className="dashboard-container">
+      <motion.nav 
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="top-nav"
+      >
         <div className="nav-logo" style={{ cursor: 'pointer' }} onClick={() => setView('library')}>
           <Bot size={32} color="var(--accent)" />
           <span>Kakkamutta Platform</span>
         </div>
         <div className="nav-actions">
           {view === 'library' && (
-            <button className="btn-primary" onClick={() => setView('type_select')}>
+            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="btn-primary" onClick={() => setView('type_select')}>
               <Plus size={18} /> Create Agent
-            </button>
+            </motion.button>
           )}
           {view !== 'library' && (
-            <button className="btn-secondary" onClick={() => { setView('library'); setActiveTab('config'); }}>
+            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="btn-secondary" onClick={() => { setView('library'); setActiveTab('config'); }}>
               <LayoutGrid size={18} /> Back to Library
-            </button>
+            </motion.button>
           )}
         </div>
-      </nav>
+      </motion.nav>
 
+      <AnimatePresence mode="wait">
       {view === 'library' && (
-        <div>
+        <motion.div
+          key="library"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.3 }}
+        >
           <h2>Your Agents</h2>
           <p style={{ color: 'var(--text-secondary)' }}>Manage and configure your custom AI voice agents.</p>
           
           {agents.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '5rem', background: 'var(--glass-bg)', borderRadius: '16px', marginTop: '2rem' }}>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              style={{ textAlign: 'center', padding: '5rem', background: 'var(--glass-bg)', borderRadius: '16px', marginTop: '2rem' }}
+            >
               <Bot size={48} color="var(--text-secondary)" style={{ marginBottom: '1rem' }} />
               <h3>No agents yet</h3>
               <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Create your first voice agent to get started.</p>
-              <button className="btn-primary" style={{ margin: '0 auto' }} onClick={() => setView('type_select')}>
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="btn-primary" style={{ margin: '0 auto' }} onClick={() => setView('type_select')}>
                 <Plus size={18} /> Create Agent
-              </button>
-            </div>
+              </motion.button>
+            </motion.div>
           ) : (
-            <div className="agent-grid">
+            <motion.div 
+              className="agent-grid"
+              variants={{ show: { transition: { staggerChildren: 0.1 } } }}
+              initial="hidden"
+              animate="show"
+            >
               {agents.map(agent => (
-                <div key={agent.id} className="agent-card" onClick={() => handleOpenAgent(agent)}>
+                <motion.div 
+                  key={agent.id} 
+                  variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+                  whileHover={{ y: -5, scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="agent-card" 
+                  onClick={() => handleOpenAgent(agent)}
+                >
                   <div className="agent-card-header">
                     <div className="agent-card-icon">
                       {agent.agent_type === 'inbound' ? <Phone size={24} /> : <PhoneOutgoing size={24} />}
@@ -297,15 +333,21 @@ function App() {
                       ID: {agent.id}
                     </p>
                   </div>
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           )}
-        </div>
+        </motion.div>
       )}
 
       {view === 'type_select' && (
-        <div>
+        <motion.div
+          key="type_select"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.3 }}
+        >
           <button className="btn-secondary" onClick={() => setView('library')} style={{ marginBottom: '2rem', border: 'none', paddingLeft: 0 }}>
             <ArrowLeft size={18} /> Cancel
           </button>
@@ -329,19 +371,30 @@ function App() {
               <p>Makes outgoing calls to leads. You can trigger calls manually from the dashboard.</p>
             </div>
 
-            <div className="template-card" onClick={() => { setSelectedType('multilingual_outbound'); setView('templates'); }}>
+            <motion.div 
+              whileHover={{ y: -5, scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="template-card" 
+              onClick={() => { setSelectedType('multilingual_outbound'); setView('templates'); }}
+            >
               <div style={{ background: 'rgba(236, 72, 153, 0.1)', color: '#ec4899', width: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
                 <Bot size={20} />
               </div>
               <h3>Multilingual Outbound</h3>
               <p>Outbound calling with automatic language detection and switching capabilities.</p>
-            </div>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {view === 'templates' && (
-        <div>
+        <motion.div
+          key="templates"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.3 }}
+        >
           <button className="btn-secondary" onClick={() => setView('type_select')} style={{ marginBottom: '2rem', border: 'none', paddingLeft: 0 }}>
             <ArrowLeft size={18} /> Back
           </button>
@@ -350,20 +403,33 @@ function App() {
           
           <div className="template-grid">
             {templates.map(t => (
-              <div key={t.id} className="template-card" onClick={() => handleCreateFromTemplate(t)}>
+              <motion.div 
+                key={t.id} 
+                whileHover={{ y: -5, scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="template-card" 
+                onClick={() => handleCreateFromTemplate(t)}
+              >
                 <div style={{ background: 'rgba(255,255,255,0.1)', width: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
                   {t.id === 'real_estate' ? '🏠' : t.id === 'healthcare' ? '🏥' : t.id === 'recruitment' ? '🤝' : t.id === 'customer_support' ? '🎧' : '✨'}
                 </div>
                 <h3>{t.name}</h3>
                 <p>{t.description}</p>
-              </div>
+              </motion.div>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {view === 'builder' && (
-        <div className="builder-layout">
+        <motion.div
+          key="builder"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.4 }}
+          className="builder-layout"
+        >
           <div className="builder-sidebar">
             <button className={`tab-btn ${activeTab === 'config' ? 'active' : ''}`} onClick={() => setActiveTab('config')}>
               <Settings size={18} /> Configuration
@@ -575,16 +641,25 @@ function App() {
               </div>
             )}
           </div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {toast && (
-        <div className="toast">
-          <CheckCircle2 size={24} />
-          Agent saved successfully!
-        </div>
+        <AnimatePresence>
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            className="toast"
+          >
+            <CheckCircle2 size={24} />
+            Agent saved successfully!
+          </motion.div>
+        </AnimatePresence>
       )}
     </div>
+    </>
   );
 }
 
