@@ -416,6 +416,22 @@ async def get_all_agents(db: Session = Depends(get_db)):
     agents = db.query(DBAgent).order_by(DBAgent.created_at.desc()).all()
     return agents
 
+@app.get("/api/seed")
+async def seed_agents(db: Session = Depends(get_db)):
+    agents = [
+        {"name": "Inbound Agent", "agent_type": "inbound", "niche": "real_estate", "voice": "priya", "prompt": "You are Priya, an inbound agent..."},
+        {"name": "Outbound Agent", "agent_type": "outbound", "niche": "real_estate", "voice": "priya", "prompt": "You are Priya, an outbound agent..."},
+        {"name": "Multilingual Agent", "agent_type": "multilingual_outbound", "niche": "real_estate", "voice": "priya", "prompt": "You are Priya, a multilingual agent..."}
+    ]
+    created = 0
+    for a in agents:
+        existing = db.query(DBAgent).filter(DBAgent.name == a["name"]).first()
+        if not existing:
+            db.add(DBAgent(name=a["name"], agent_type=a["agent_type"], niche=a["niche"], system_prompt=a["prompt"], voice=a["voice"]))
+            created += 1
+    db.commit()
+    return {"message": f"Seeded {created} default agents."}
+
 @app.get("/api/templates")
 async def get_templates():
     return [

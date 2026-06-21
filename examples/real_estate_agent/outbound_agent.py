@@ -305,7 +305,7 @@ async def run_outbound(
         # 0.8s guard: phone lines emit a noise burst at ~600ms that fires VAD.
         await asyncio.sleep(0.8)
         logger.info(f"Queuing outbound opener via TTSSpeakFrame: {opener}")
-        await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
+        await worker.queue_frames([TTSSpeakFrame(text=opener)])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(_transport, _client):

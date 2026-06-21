@@ -197,7 +197,7 @@ async def run_inbound(
         # would interrupt TTS. We start synthesis only after it has passed.
         await asyncio.sleep(0.8)
         logger.info("Queuing greeting via TTSSpeakFrame")
-        await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
+        await worker.queue_frames([TTSSpeakFrame(text=opener)])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(_transport, _client):
