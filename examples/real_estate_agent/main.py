@@ -183,7 +183,10 @@ async def ws_inbound(websocket: WebSocket, agent_id: str = Query("")):
             openai_api_key=OPENAI_API_KEY,
             sarvam_api_key=SARVAM_API_KEY,
             system_prompt=agent.system_prompt,
-            voice=agent.voice
+            voice=agent.voice,
+            company_name=agent.company_name,
+            knowledge_base=agent.knowledge_base,
+            niche=agent.niche
         )
     except Exception as e:
         import traceback
@@ -239,7 +242,10 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
             openai_api_key=OPENAI_API_KEY,
             sarvam_api_key=SARVAM_API_KEY,
             system_prompt=agent.system_prompt,
-            voice=agent.voice
+            voice=agent.voice,
+            company_name=agent.company_name,
+            knowledge_base=agent.knowledge_base,
+            niche=agent.niche
         )
     except Exception as e:
         import traceback
@@ -295,7 +301,10 @@ async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(..
             openai_api_key=OPENAI_API_KEY,
             sarvam_api_key=SARVAM_API_KEY,
             system_prompt=agent.system_prompt,
-            voice=agent.voice
+            voice=agent.voice,
+            company_name=agent.company_name,
+            knowledge_base=agent.knowledge_base,
+            niche=agent.niche
         )
     except Exception as e:
         import traceback
@@ -406,17 +415,21 @@ from sqlalchemy.orm import Session
 
 class AgentCreate(BaseModel):
     name: str
+    company_name: str = ""
     niche: str
     agent_type: str
     system_prompt: str
     voice: str
+    knowledge_base: str = ""
 
 class AgentUpdate(BaseModel):
     name: str
+    company_name: str = ""
     niche: str
     agent_type: str
     system_prompt: str
     voice: str
+    knowledge_base: str = ""
 
 class PhoneCreate(BaseModel):
     phone_number: str
@@ -497,10 +510,12 @@ async def get_agent(agent_id: str, db: Session = Depends(get_db)):
 async def create_agent(agent: AgentCreate, db: Session = Depends(get_db)):
     db_agent = DBAgent(
         name=agent.name,
+        company_name=agent.company_name,
         niche=agent.niche,
         agent_type=agent.agent_type,
         system_prompt=agent.system_prompt,
-        voice=agent.voice
+        voice=agent.voice,
+        knowledge_base=agent.knowledge_base
     )
     db.add(db_agent)
     db.commit()
@@ -514,13 +529,52 @@ async def update_agent(agent_id: str, agent: AgentUpdate, db: Session = Depends(
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Agent not found")
     db_agent.name = agent.name
+    db_agent.company_name = agent.company_name
     db_agent.niche = agent.niche
     db_agent.agent_type = agent.agent_type
     db_agent.system_prompt = agent.system_prompt
     db_agent.voice = agent.voice
+    db_agent.knowledge_base = agent.knowledge_base
     db.commit()
     db.refresh(db_agent)
     return db_agent
+
+@app.post("/api/agents/{agent_id}/upload")
+async def upload_knowledge(agent_id: str, request: Request, db: Session = Depends(get_db)):
+    db_agent = db.query(DBAgent).filter(DBAgent.id == agent_id).first()
+    if not db_agent:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Agent not found")
+        
+    form = await request.form()
+    file = form.get("file")
+    if not file:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="No file uploaded")
+        
+    import io
+    content = await file.read()
+    filename = file.filename.lower()
+    extracted_text = ""
+    
+    if filename.endswith(".pdf"):
+        import PyPDF2
+        pdf_reader = PyPDF2.PdfReader(io.BytesIO(content))
+        for page in pdf_reader.pages:
+            text = page.extract_text()
+            if text:
+                extracted_text += text + "\n"
+    else:
+        # Fallback for plain text files
+        extracted_text = content.decode("utf-8", errors="ignore")
+        
+    # Append the extracted text to the existing knowledge base
+    existing_kb = db_agent.knowledge_base or ""
+    new_kb = existing_kb + f"\n\n--- Document: {file.filename} ---\n{extracted_text}"
+    db_agent.knowledge_base = new_kb.strip()
+    db.commit()
+    
+    return {"message": f"Successfully parsed {file.filename} and added to knowledge base.", "text_preview": extracted_text[:200]}
 
 @app.get("/api/agents/{agent_id}/phones")
 async def get_agent_phones(agent_id: str, db: Session = Depends(get_db)):

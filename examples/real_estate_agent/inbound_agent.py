@@ -96,6 +96,9 @@ async def run_inbound(
     sarvam_api_key: str,
     system_prompt: str,
     voice: str,
+    company_name: str,
+    knowledge_base: str,
+    niche: str,
 ) -> None:
     """Build and run the inbound call pipeline.
 
@@ -122,12 +125,19 @@ async def run_inbound(
         ),
     )
 
+    system_prompt_final = (
+        f"You are representing: {company_name}\n\n"
+        f"{system_prompt}\n\n"
+        f"--- KNOWLEDGE BASE ---\n{knowledge_base}\n\n"
+        f"{_BASE_RULES}"
+    )
+
     # --- LLM ---
     llm = OpenAILLMService(
         api_key=openai_api_key,
         settings=OpenAILLMService.Settings(
             model="gpt-4o-mini",
-            system_instruction=system_prompt,
+            system_instruction=system_prompt_final,
         ),
     )
 
@@ -149,7 +159,9 @@ async def run_inbound(
     )
 
     # --- Context + aggregator ---
-    context = LLMContext(tools=INBOUND_TOOLS)
+    from tools import INBOUND_TOOLS, transfer_to_agent
+    tools_to_use = INBOUND_TOOLS if niche == "real_estate" else [transfer_to_agent]
+    context = LLMContext(tools=tools_to_use)
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(

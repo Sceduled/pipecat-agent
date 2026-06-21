@@ -24,6 +24,8 @@ class Agent(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     name = Column(String, nullable=False)
     niche = Column(String, nullable=False, default="custom")
+    company_name = Column(String, nullable=False, default="")
+    knowledge_base = Column(Text, nullable=False, default="")
     agent_type = Column(String, nullable=False, default="inbound")
     system_prompt = Column(Text, nullable=False)
     voice = Column(String, nullable=False, default="priya")
@@ -56,13 +58,17 @@ def auto_migrate():
     try:
         with engine.begin() as conn:
             try:
-                conn.execute(text("ALTER TABLE agents ADD COLUMN niche VARCHAR DEFAULT 'custom'"))
-            except Exception:
-                pass
+                conn.execute(text("ALTER TABLE agents ADD COLUMN agent_type VARCHAR NOT NULL DEFAULT 'inbound'"))
+            except Exception: pass
             try:
-                conn.execute(text("ALTER TABLE agents ADD COLUMN agent_type VARCHAR DEFAULT 'inbound'"))
-            except Exception:
-                pass
+                conn.execute(text("ALTER TABLE agents ADD COLUMN niche VARCHAR NOT NULL DEFAULT 'custom'"))
+            except Exception: pass
+            try:
+                conn.execute(text("ALTER TABLE agents ADD COLUMN company_name VARCHAR NOT NULL DEFAULT ''"))
+            except Exception: pass
+            try:
+                conn.execute(text("ALTER TABLE agents ADD COLUMN knowledge_base TEXT NOT NULL DEFAULT ''"))
+            except Exception: pass
     except Exception as e:
         print("Auto-migration failed:", e)
 

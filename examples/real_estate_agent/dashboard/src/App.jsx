@@ -14,7 +14,7 @@ function App() {
   
   const [selectedType, setSelectedType] = useState('inbound'); // 'inbound', 'outbound', 'multilingual_outbound'
   const [selectedAgentId, setSelectedAgentId] = useState(null);
-  const [config, setConfig] = useState({ name: '', niche: 'custom', agent_type: 'inbound', system_prompt: '', voice: 'priya' });
+  const [config, setConfig] = useState({ name: '', company_name: '', niche: 'custom', agent_type: 'inbound', system_prompt: '', voice: 'priya', knowledge_base: '' });
   
   const [activeTab, setActiveTab] = useState('config'); // 'config', 'phones', 'dialer', 'logs'
   const [phones, setPhones] = useState([]);
@@ -88,10 +88,12 @@ function App() {
     setSelectedAgentId(agent.id);
     setConfig({
       name: agent.name,
+      company_name: agent.company_name || '',
       niche: agent.niche,
-      agent_type: agent.agent_type || 'inbound', // Fallback for old agents
+      agent_type: agent.agent_type || 'inbound',
       system_prompt: agent.system_prompt,
-      voice: agent.voice
+      voice: agent.voice,
+      knowledge_base: agent.knowledge_base || ''
     });
     setActiveTab('config');
     setView('builder');
@@ -117,6 +119,34 @@ function App() {
     } catch (err) {
       console.error('Failed to create agent:', err);
     }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedAgentId) return;
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    setIsSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/agents/${selectedAgentId}/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (res.ok) {
+        setToast(true);
+        setTimeout(() => setToast(false), 3000);
+        const agentRes = await fetch(`${API_BASE}/agents/${selectedAgentId}`);
+        const updatedAgent = await agentRes.json();
+        setConfig(prev => ({ ...prev, knowledge_base: updatedAgent.knowledge_base }));
+      } else {
+        alert('Failed to upload file');
+      }
+    } catch (err) {
+      console.error('Upload error:', err);
+    }
+    setIsSaving(false);
   };
 
   const handleSaveConfig = async () => {
@@ -371,6 +401,27 @@ function App() {
 
             {activeTab === 'config' && (
               <div>
+                <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label>Company Name</label>
+                    <input 
+                      type="text" 
+                      value={config.company_name} 
+                      onChange={e => setConfig({ ...config, company_name: e.target.value })} 
+                      placeholder="e.g. Prestige Realty"
+                    />
+                  </div>
+                  <div>
+                    <label>Agent Niche / Capabilities</label>
+                    <select value={config.niche} onChange={e => setConfig({ ...config, niche: e.target.value })}>
+                      <option value="real_estate">Real Estate (Property Search Tools)</option>
+                      <option value="custom">Custom / Generic (Basic Tools)</option>
+                      <option value="healthcare">Healthcare</option>
+                      <option value="customer_support">Customer Support</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div className="form-group">
                   <label>Voice Provider</label>
                   <select value={config.voice} onChange={e => setConfig({ ...config, voice: e.target.value })}>
@@ -387,6 +438,23 @@ function App() {
                     onChange={e => setConfig({ ...config, system_prompt: e.target.value })}
                   />
                   <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>This prompt defines the agent's behavior, goal, and how it handles objections.</p>
+                </div>
+
+                <div className="form-group" style={{ marginTop: '2rem' }}>
+                  <label style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Knowledge Base (Context)</span>
+                    <label className="btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', cursor: 'pointer', margin: 0 }}>
+                      Upload PDF/Word
+                      <input type="file" style={{ display: 'none' }} accept=".pdf,.txt,.docx" onChange={handleFileUpload} />
+                    </label>
+                  </label>
+                  <textarea 
+                    style={{ height: '200px' }}
+                    value={config.knowledge_base}
+                    onChange={e => setConfig({ ...config, knowledge_base: e.target.value })}
+                    placeholder="Paste FAQs, pricing, or product details here... Or click the upload button to extract text from a file."
+                  />
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>The AI has instant access to everything written here.</p>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2rem' }}>

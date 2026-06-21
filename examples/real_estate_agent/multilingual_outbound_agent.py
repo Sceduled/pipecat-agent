@@ -194,6 +194,9 @@ async def run_multilingual_outbound(
     sarvam_api_key: str,
     system_prompt: str,
     voice: str,
+    company_name: str,
+    knowledge_base: str,
+    niche: str,
 ) -> None:
     """Build and run the outbound call pipeline for a given session.
 
@@ -214,7 +217,9 @@ async def run_multilingual_outbound(
     
     # We combine the UI-configured persona with the dynamic lead context
     system_prompt_final = (
+        f"You are representing: {company_name}\n\n"
         f"{system_prompt}\n\n"
+        f"--- KNOWLEDGE BASE ---\n{knowledge_base}\n\n"
         f"--- CALL CONTEXT ---\n"
         f"Lead Name: {lead_context.get('name', 'Unknown')}\n"
         f"Call Type: {call_type}\n"
@@ -258,7 +263,9 @@ async def run_multilingual_outbound(
     )
 
     # --- Context + aggregator ---
-    context = LLMContext(tools=OUTBOUND_TOOLS)
+    from tools import OUTBOUND_TOOLS, update_call_outcome, end_call
+    tools_to_use = OUTBOUND_TOOLS if niche == "real_estate" else [update_call_outcome, end_call]
+    context = LLMContext(tools=tools_to_use)
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(
