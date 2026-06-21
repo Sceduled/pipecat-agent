@@ -196,6 +196,7 @@ async def ws_inbound(websocket: WebSocket, agent_id: str = Query("")):
 async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
     """Handles every outbound call from Vobiz. session carries the lead context."""
     from database import SessionLocal, Agent as DBAgent, CallLog
+    from outbound_agent import pending_outbound_sessions
     
     context = pending_outbound_sessions.get(session)
     if not context:
