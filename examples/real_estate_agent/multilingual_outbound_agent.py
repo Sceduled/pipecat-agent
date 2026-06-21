@@ -304,18 +304,15 @@ async def run_multilingual_outbound(
         lead_name = lead_context.get("name", "")
         company = company_name if company_name else "our company"
         opener = (
-            f"Hi, is this {lead_name}? I'm calling from {company}."
+            f"Hello? ... Hi, is this {lead_name}? I'm calling from {company}."
             if lead_name
-            else f"Hi, I'm calling from {company}. Am I speaking with the right person?"
+            else f"Hello? ... Hi, I'm calling from {company}. Am I speaking with the right person?"
         )
-        # Add greeting to context NOW (synchronous, before any await) so any user
-        # speech during the startup window sees a prior assistant turn and the LLM
-        # won't re-introduce. TTSSpeakFrame(append_to_context=False) synthesizes the
-        # audio without double-adding the message after TTS finishes.
         context.add_message({"role": "assistant", "content": opener})
-        # 1.5s guard: phone lines emit a noise burst at ~600ms that fires VAD,
-        # and human users usually say 'Hello?' around 1s. Waiting 1.5s prevents clashing.
-        await asyncio.sleep(1.5)
+        
+        # Ultra-low latency: wait only 200ms before sending audio. 
+        # The "Hello? ..." padding protects the main sentence from SIP clipping.
+        await asyncio.sleep(0.2)
         logger.info(f"Queuing outbound opener via TTSSpeakFrame: {opener}")
         await worker.queue_frames([TTSSpeakFrame(text=opener)])
 
