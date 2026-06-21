@@ -186,6 +186,9 @@ async def ws_inbound(websocket: WebSocket, agent_id: str = Query("")):
             voice=agent.voice
         )
     except Exception as e:
+        import traceback
+        with open("crash.log", "a") as f:
+            f.write("INBOUND ERROR:\n" + traceback.format_exc() + "\n")
         logger.exception(f"Inbound call pipeline error: {e}")
 
 
@@ -238,6 +241,9 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
             voice=agent.voice
         )
     except Exception as e:
+        import traceback
+        with open("crash.log", "a") as f:
+            f.write("OUTBOUND ERROR:\n" + traceback.format_exc() + "\n")
         logger.exception(f"Outbound call pipeline error: {e}")
 
 
@@ -291,6 +297,9 @@ async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(..
             voice=agent.voice
         )
     except Exception as e:
+        import traceback
+        with open("crash.log", "a") as f:
+            f.write("MULTILINGUAL ERROR:\n" + traceback.format_exc() + "\n")
         logger.exception(f"Multilingual Outbound call pipeline error: {e}")
 
 
@@ -431,6 +440,14 @@ async def seed_agents(db: Session = Depends(get_db)):
             created += 1
     db.commit()
     return {"message": f"Seeded {created} default agents."}
+
+@app.get("/api/crash")
+async def get_crash_log():
+    try:
+        with open("crash.log", "r") as f:
+            return {"log": f.read()}
+    except FileNotFoundError:
+        return {"log": "No crashes recorded yet!"}
 
 @app.get("/api/templates")
 async def get_templates():
