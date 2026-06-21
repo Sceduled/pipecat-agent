@@ -199,7 +199,8 @@ async def run_inbound(
     @transport.event_handler("on_client_connected")
     async def on_client_connected(_transport, _client):
         logger.info("Inbound call connected — waiting for phone line to settle")
-        opener = "Hi, this is Priya from Prestige Realty. How can I help you today?"
+        company = company_name if company_name else "our company"
+        opener = f"Hi, thanks for calling {company}. How can I help you today?"
         # Add greeting to context NOW (synchronous, before any await) so any user
         # speech during the startup window sees a prior assistant turn and the LLM
         # won't re-introduce. TTSSpeakFrame(append_to_context=False) synthesizes the

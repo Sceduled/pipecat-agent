@@ -299,10 +299,11 @@ async def run_outbound(
     async def on_client_connected(_transport, _client):
         logger.info(f"Outbound call connected | call_type={call_type} | lead={lead_context.get('name')}")
         lead_name = lead_context.get("name", "")
+        company = company_name if company_name else "our company"
         opener = (
-            f"Hi, is this {lead_name}? This is Priya from Prestige Realty."
+            f"Hi, is this {lead_name}? I'm calling from {company}."
             if lead_name
-            else "Hi, this is Priya from Prestige Realty. Am I speaking with the right person?"
+            else f"Hi, I'm calling from {company}. Am I speaking with the right person?"
         )
         # Add greeting to context NOW (synchronous, before any await) so any user
         # speech during the startup window sees a prior assistant turn and the LLM
