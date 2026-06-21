@@ -55,9 +55,8 @@ pending_outbound_sessions: dict[str, dict] = {}
 
 _BASE_RULES = """
 CONVERSATION RULES:
-- Your opening greeting must be ONE short sentence only. Example: "Hi, is this Rahul? This is Priya from Prestige Realty."
-- Once you have introduced yourself, NEVER say your name or company again in the same call. Continue naturally.
-- If the lead says "hello" or "hi" after your greeting, treat it as a natural continuation. Do NOT re-introduce yourself.
+- Your opening greeting must be ONE short sentence only.
+- If the lead says "hello" or "hi" at the start of the call, they may not have heard your initial greeting. Briefly introduce yourself and state why you are calling.
 - Lead speech sometimes arrives as multiple short messages in a row. Treat them as one continuous sentence.
 
 PHONE CALL SPEAKING RULES:
@@ -310,8 +309,9 @@ async def run_outbound(
         # won't re-introduce. TTSSpeakFrame(append_to_context=False) synthesizes the
         # audio without double-adding the message after TTS finishes.
         context.add_message({"role": "assistant", "content": opener})
-        # 0.8s guard: phone lines emit a noise burst at ~600ms that fires VAD.
-        await asyncio.sleep(0.8)
+        # 1.5s guard: phone lines emit a noise burst at ~600ms that fires VAD,
+        # and human users usually say 'Hello?' around 1s. Waiting 1.5s prevents clashing.
+        await asyncio.sleep(1.5)
         logger.info(f"Queuing outbound opener via TTSSpeakFrame: {opener}")
         await worker.queue_frames([TTSSpeakFrame(text=opener)])
 
