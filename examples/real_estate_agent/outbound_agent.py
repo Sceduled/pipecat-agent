@@ -211,10 +211,20 @@ async def run_outbound(
 
     call_type = lead_context.get("call_type", "follow_up")
     
+    outbound_directive = (
+        f"CRITICAL: THIS IS AN OUTBOUND CALL.\n"
+        f"You are calling {lead_context.get('name', 'a customer')} regarding their interest in {lead_context.get('interest', 'property')}.\n"
+        f"THE SYSTEM HAS ALREADY SPOKEN YOUR OPENING GREETING TO THE USER ON YOUR BEHALF.\n"
+        f"DO NOT introduce yourself. DO NOT say 'Hi' or 'Hello' or repeat the company name.\n"
+        f"Assume the user just heard you ask 'Is this a good time to talk?'.\n"
+        f"Your FIRST response MUST simply react to whatever the user just said (e.g., 'Great, let me tell you about...')."
+    )
+
     # We combine the UI-configured persona with the dynamic lead context
     system_prompt_final = (
         f"You are representing: {company_name}\n\n"
         f"{system_prompt}\n\n"
+        f"{outbound_directive}\n\n"
         f"--- KNOWLEDGE BASE ---\n{knowledge_base}\n\n"
         f"--- CALL CONTEXT ---\n"
         f"Lead Name: {lead_context.get('name', 'Unknown')}\n"
