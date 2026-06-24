@@ -234,10 +234,14 @@ async def run_outbound(
     )
 
     # --- STT ---
-    stt = SarvamSTTService(
-        api_key=sarvam_api_key,
-        sample_rate=8000,
-        input_audio_codec="pcm",
+    stt = DeepgramSTTService(
+        api_key=deepgram_api_key,
+        settings=DeepgramSTTService.Settings(
+            model="nova-2-phonecall",
+            endpointing=300,
+            utterance_end_ms=1000,
+            interim_results=True,
+        ),
     )
 
     # --- LLM ---

@@ -242,6 +242,8 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
     call_log = CallLog(agent_id=agent_id, direction="outbound", caller_number=lead_phone)
     db.add(call_log)
     db.commit()
+    db.refresh(call_log)
+    call_log_id = call_log.id
     db.close()
     
     try:
@@ -262,7 +264,7 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
         if messages:
             transcript = "\n".join([f"{msg['role'].capitalize()}: {msg.get('content', '')}" for msg in messages if msg.get("role") in ["user", "assistant"]])
             db = SessionLocal()
-            db_log = db.query(CallLog).filter(CallLog.id == call_log.id).first()
+            db_log = db.query(CallLog).filter(CallLog.id == call_log_id).first()
             if db_log:
                 db_log.transcript = transcript
                 db.commit()
