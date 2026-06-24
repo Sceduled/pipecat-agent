@@ -236,6 +236,8 @@ async def run_outbound(
     # --- STT ---
     stt = SarvamSTTService(
         api_key=sarvam_api_key,
+        sample_rate=8000,
+        input_audio_codec="pcm",
     )
 
     # --- LLM ---
