@@ -31,7 +31,7 @@ from pipecat.turns.user_stop.speech_timeout_user_turn_stop_strategy import (
     SpeechTimeoutUserTurnStopStrategy,
 )
 from pipecat.turns.user_turn_strategies import UserTurnStrategies
-from pipecat.services.deepgram.stt import DeepgramSTTService
+from pipecat.services.sarvam.stt import SarvamSTTService
 from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketTransport
@@ -234,14 +234,8 @@ async def run_outbound(
     )
 
     # --- STT ---
-    stt = DeepgramSTTService(
-        api_key=deepgram_api_key,
-        settings=DeepgramSTTService.Settings(
-            model="nova-2-phonecall",
-            endpointing=300,
-            utterance_end_ms=1000,
-            interim_results=True,
-        ),
+    stt = SarvamSTTService(
+        api_key=sarvam_api_key,
     )
 
     # --- LLM ---
