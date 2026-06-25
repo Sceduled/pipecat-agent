@@ -49,7 +49,8 @@ load_dotenv(Path(__file__).parent / ".env", override=True)
 # ---------------------------------------------------------------------------
 
 DEEPGRAM_API_KEY = os.environ.get("DEEPGRAM_API_KEY", "")
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", os.environ.get("GROQ_API_KEY", ""))
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 SARVAM_API_KEY = os.environ.get("SARVAM_API_KEY", "")
 VOBIZ_AUTH_ID = os.environ.get("VOBIZ_AUTH_ID", "")           # X-Auth-ID from console.vobiz.ai
 VOBIZ_AUTH_TOKEN = os.environ.get("VOBIZ_AUTH_TOKEN", "")     # X-Auth-Token from console.vobiz.ai
@@ -187,7 +188,8 @@ async def ws_inbound(websocket: WebSocket, agent_id: str = Query("")):
             voice=agent.voice,
             company_name=agent.company_name,
             knowledge_base=agent.knowledge_base,
-            niche=agent.niche
+            niche=agent.niche,
+            groq_api_key=GROQ_API_KEY,
         )
         
         # Save transcript
@@ -270,7 +272,8 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
             voice=voice,
             company_name=agent.company_name,
             knowledge_base=agent.knowledge_base,
-            niche=agent.niche
+            niche=agent.niche,
+            groq_api_key=GROQ_API_KEY,
         )
 
         if messages:
@@ -353,7 +356,8 @@ async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(..
             voice=voice,
             company_name=agent.company_name,
             knowledge_base=agent.knowledge_base,
-            niche=agent.niche
+            niche=agent.niche,
+            groq_api_key=GROQ_API_KEY,
         )
 
         if messages:

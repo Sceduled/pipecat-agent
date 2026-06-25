@@ -32,6 +32,7 @@ from pipecat.turns.user_stop.speech_timeout_user_turn_stop_strategy import (
 )
 from pipecat.turns.user_turn_strategies import UserTurnStrategies
 from pipecat.services.deepgram.stt import DeepgramSTTService
+from pipecat.services.groq.llm import GroqLLMService
 from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketTransport
@@ -193,6 +194,7 @@ async def run_outbound(
     company_name: str,
     knowledge_base: str,
     niche: str,
+    groq_api_key: str = "",
 ) -> None:
     """Build and run the outbound call pipeline for a given session.
 
@@ -204,6 +206,7 @@ async def run_outbound(
         sarvam_api_key: Sarvam API key.
         system_prompt: DB-configured system prompt.
         voice: DB-configured TTS voice.
+        groq_api_key: Groq API key. When provided, Groq is used instead of OpenAI (~0.3s TTFB vs ~2s).
     """
     lead_context = pending_outbound_sessions.pop(session_token, {})
     if not lead_context:
@@ -245,13 +248,23 @@ async def run_outbound(
     )
 
     # --- LLM ---
-    llm = OpenAILLMService(
-        api_key=openai_api_key,
-        settings=OpenAILLMService.Settings(
-            model="gpt-4o-mini",
-            system_instruction=system_prompt_final,
-        ),
-    )
+    # Groq: ~0.3-0.5s TTFB vs OpenAI ~1-3s TTFB — use if key is available
+    if groq_api_key:
+        llm = GroqLLMService(
+            api_key=groq_api_key,
+            settings=GroqLLMService.Settings(
+                model="llama-3.3-70b-versatile",
+                system_instruction=system_prompt_final,
+            ),
+        )
+    else:
+        llm = OpenAILLMService(
+            api_key=openai_api_key,
+            settings=OpenAILLMService.Settings(
+                model="gpt-4o-mini",
+                system_instruction=system_prompt_final,
+            ),
+        )
 
     # --- TTS ---
     # WebSocket streaming with min_buffer_size=80: Sarvam buffers until 80 chars
