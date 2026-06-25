@@ -37,8 +37,6 @@ from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketTransport
 from pipecat.workers.runner import WorkerRunner
 
-from config_manager import get_config
-
 from tools import OUTBOUND_TOOLS
 
 # ---------------------------------------------------------------------------
@@ -64,6 +62,7 @@ PHONE CALL SPEAKING RULES:
 - Start your responses with a short conversational filler (e.g., "Got it, ", "Sure, ", "Okay, ") so you can begin speaking immediately while thinking.
 - Use natural contractions (e.g., "I've", "You'll", "Let's") and smooth connectors ("So what I can do is,", "That's great, just to confirm,").
 - Never say confirmation IDs, booking IDs, reference numbers, or RERA numbers. Never.
+- Before calling search_properties, calculate_emi, or book_site_visit, say one short warm sentence first so there is no silence. Example: "Sure, let me check what's available for you." or "Let me work out those numbers." Then immediately make the tool call.
 - Never say "I'll log this", "let me check", "just a moment", or any backend commentary.
 - Never describe what tool you are calling. Call it silently and give the result naturally.
 - After booking: confirm with date and time only. Example: "Wonderful, you are booked for Saturday the 25th at 10 in the morning."
@@ -283,7 +282,7 @@ async def run_outbound(
         context,
         user_params=LLMUserAggregatorParams(
             vad_analyzer=SileroVADAnalyzer(
-                params=VADParams(min_volume=0.1, confidence=0.5, stop_secs=0.5)
+                params=VADParams(min_volume=0.1, confidence=0.5, stop_secs=0.3)
             ),
             user_turn_strategies=UserTurnStrategies(
                 stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.4)],
@@ -327,7 +326,7 @@ async def run_outbound(
         # The "Hello? ..." padding protects the main sentence from SIP clipping.
         await asyncio.sleep(0.2)
         logger.info(f"Queuing outbound opener via TTSSpeakFrame: {opener}")
-        await worker.queue_frames([TTSSpeakFrame(text=opener)])
+        await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(_transport, _client):

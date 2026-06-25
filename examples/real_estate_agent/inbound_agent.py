@@ -31,8 +31,6 @@ from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketTransport
 from pipecat.workers.runner import WorkerRunner
 
-from config_manager import get_config
-
 from tools import INBOUND_TOOLS
 
 # ---------------------------------------------------------------------------
@@ -71,6 +69,42 @@ PHONE CALL SPEAKING RULES:
 - Never ask more than one question at a time.
 
 TTS PRONUNCIATION RULES — follow these exactly for natural phone audio:
+- Apartment sizes: always say "two B H K" or "three B H K". Never "2BHK", "3 BHK", or "BHK" alone.
+- Money in lakhs: say "85 lakhs" or "90 lakhs". Never "85L", "85 L", or any short form.
+- Money in crores: say "1.5 crores" or "2 crores". Never "1.5 Cr", "2 Cr", or any short form.
+- Area: always say "square feet". Never "sq ft", "sqft", or "sq.ft".
+- Monthly repayment: say "around 65 thousand rupees a month". Never use "EMI" as a word.
+- Large numbers: say "65 thousand" not "65,000". Say "1 lakh 20 thousand" not "1,20,000".
+- Percentages: say "8.5 percent" not "8.5%".
+- Dates: say "the 25th of June" or "Saturday the 25th". Never read out a date like "2026-06-25".
+- Never use em-dashes, en-dashes, or hyphens between clauses. Use a comma or period instead.
+- Never use ellipsis. End every sentence cleanly.
+- No brackets or parentheses anywhere in your response."""
+
+# Shared rules appended to every DB-configured system prompt.
+_BASE_RULES = """
+CONVERSATION RULES:
+- Your opening greeting must be ONE short sentence only.
+- Once you have introduced yourself, NEVER say your name or company again. Just continue naturally.
+- If the user says "hello" or "hi" at the start of the call, they may not have heard your initial greeting. Briefly introduce yourself.
+- User speech sometimes arrives as multiple short messages in a row. Treat them as one continuous sentence.
+
+PHONE CALL SPEAKING RULES:
+- Speak in 1 to 2 complete, naturally flowing sentences per response.
+- Start your responses with a short conversational filler ("Got it, ", "Sure, ", "Okay, ") so you begin speaking immediately while thinking.
+- Use natural contractions ("I've", "You'll", "Let's") and smooth connectors.
+- Before calling search_properties, calculate_emi, or book_site_visit, say one short warm sentence first so there is no silence. Example: "Sure, let me check what's available for you." or "Let me work out those numbers." Then immediately make the tool call.
+- Never say confirmation IDs, booking IDs, reference numbers, or RERA numbers. Never.
+- Never say "I'll log this", "let me check", "just a moment", or any backend commentary.
+- Never describe what tool you are calling. Call it silently and give the result naturally.
+- After booking: confirm with date and time only. Example: "Perfect, you are booked for Saturday the 25th at 10 in the morning."
+- When describing property features, weave them into natural sentences. Never list them with commas one after another.
+- Never make up property data. Only use what search_properties returns.
+- No bullet points, no numbered lists, no markdown, no asterisks, no emojis. Spoken words only.
+- If caller speaks Hindi, reply in a warm Hindi-English mix.
+- Never ask more than one question at a time.
+
+TTS PRONUNCIATION RULES — follow these exactly:
 - Apartment sizes: always say "two B H K" or "three B H K". Never "2BHK", "3 BHK", or "BHK" alone.
 - Money in lakhs: say "85 lakhs" or "90 lakhs". Never "85L", "85 L", or any short form.
 - Money in crores: say "1.5 crores" or "2 crores". Never "1.5 Cr", "2 Cr", or any short form.
@@ -172,7 +206,7 @@ async def run_inbound(
             # min_volume=0.1: phone audio amplitude is ~0.05–0.25 (µ-law decoded).
             # The default 0.6 never triggers on phone lines — bot goes deaf after opener.
             vad_analyzer=SileroVADAnalyzer(
-                params=VADParams(min_volume=0.1, confidence=0.5, stop_secs=0.5)
+                params=VADParams(min_volume=0.1, confidence=0.5, stop_secs=0.3)
             ),
             user_turn_strategies=UserTurnStrategies(
                 stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.4)],
@@ -215,7 +249,7 @@ async def run_inbound(
         # The "Hello? ..." padding protects the main sentence from SIP clipping.
         await asyncio.sleep(0.2)
         logger.info("Queuing greeting via TTSSpeakFrame")
-        await worker.queue_frames([TTSSpeakFrame(text=opener)])
+        await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(_transport, _client):
