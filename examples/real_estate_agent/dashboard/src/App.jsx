@@ -504,6 +504,7 @@ function App() {
                     <option value="priya">Priya (Female - India)</option>
                     <option value="bulbul">Bulbul (Female - India)</option>
                     <option value="arjun">Arjun (Male - India)</option>
+                    <option value="shubh">Shubh (Male - India)</option>
                   </select>
                 </div>
 
