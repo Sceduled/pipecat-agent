@@ -37,8 +37,6 @@ from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketTransport
 from pipecat.workers.runner import WorkerRunner
 
-from config_manager import get_config
-
 from tools import OUTBOUND_TOOLS
 
 # ---------------------------------------------------------------------------
@@ -76,8 +74,10 @@ PHONE CALL SPEAKING RULES:
 - No bullet points, no numbered lists, no markdown, no asterisks, no emojis. Spoken words only.
 - If lead speaks Hindi, reply in a warm Hindi-English mix.
 - Never ask more than one question at a time.
+- Before calling search_properties, calculate_emi, or book_site_visit, say one short warm sentence first so there is no silence. Example: "Ji zaroor, main check karti hoon." or "Haan, main abhi calculate karti hoon." Then immediately make the tool call.
 - If they are busy, ask for a good callback time, then call update_call_outcome silently.
 - Call update_call_outcome ONLY at the very end of the conversation, not before.
+- After you have said your farewell and update_call_outcome is done, call end_call silently to hang up. Never mention that you are ending the call.
 
 TTS PRONUNCIATION RULES — follow these exactly for natural phone audio:
 - Apartment sizes: always say "two B H K" or "three B H K". Never "2BHK", "3 BHK", or "BHK" alone.
@@ -214,11 +214,21 @@ async def run_multilingual_outbound(
         logger.warning(f"No session found for token {session_token}. Using empty context.")
 
     call_type = lead_context.get("call_type", "follow_up")
-    
+
+    outbound_directive = (
+        f"CRITICAL: THIS IS AN OUTBOUND CALL.\n"
+        f"You are calling {lead_context.get('name', 'a customer')} regarding their interest in {lead_context.get('interest', 'property')}.\n"
+        f"THE SYSTEM HAS ALREADY SPOKEN YOUR OPENING GREETING TO THE USER ON YOUR BEHALF.\n"
+        f"DO NOT introduce yourself. DO NOT say 'Namaste' or repeat the company name.\n"
+        f"Assume the lead just heard you ask if they are free to talk.\n"
+        f"Your FIRST response MUST simply react to whatever the lead just said (e.g., 'Ji bilkul, main bata deti hoon...')."
+    )
+
     # We combine the UI-configured persona with the dynamic lead context
     system_prompt_final = (
         f"You are representing: {company_name}\n\n"
         f"{system_prompt}\n\n"
+        f"{outbound_directive}\n\n"
         f"--- KNOWLEDGE BASE ---\n{knowledge_base}\n\n"
         f"--- CALL CONTEXT ---\n"
         f"Lead Name: {lead_context.get('name', 'Unknown')}\n"
@@ -274,7 +284,7 @@ async def run_multilingual_outbound(
         context,
         user_params=LLMUserAggregatorParams(
             vad_analyzer=SileroVADAnalyzer(
-                params=VADParams(min_volume=0.15, confidence=0.7, stop_secs=0.4)
+                params=VADParams(min_volume=0.15, confidence=0.7, stop_secs=0.3)
             ),
             user_turn_strategies=UserTurnStrategies(
                 stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.4)],
@@ -308,17 +318,18 @@ async def run_multilingual_outbound(
         lead_name = lead_context.get("name", "")
         company = company_name if company_name else "our company"
         opener = (
-            f"Hello? ... Hi, is this {lead_name}? I'm calling from {company}."
+            f"Namaste, kya main {lead_name} se baat kar rahi hoon? Main {company} se Priya bol rahi hoon."
             if lead_name
-            else f"Hello? ... Hi, I'm calling from {company}. Am I speaking with the right person?"
+            else f"Namaste, main {company} se Priya bol rahi hoon. Kya aap mujhse baat kar sakte hain?"
         )
+        # Add to context synchronously before any await so any user speech during
+        # the startup window sees a prior assistant turn — LLM won't re-introduce.
         context.add_message({"role": "assistant", "content": opener})
-        
-        # Ultra-low latency: wait only 200ms before sending audio. 
-        # The "Hello? ..." padding protects the main sentence from SIP clipping.
-        await asyncio.sleep(0.2)
-        logger.info(f"Queuing outbound opener via TTSSpeakFrame: {opener}")
-        await worker.queue_frames([TTSSpeakFrame(text=opener)])
+        # 0.7s guard: phone lines emit a noise burst at ~600ms that fires VAD and
+        # would interrupt TTS if we start earlier. Must sleep past it.
+        await asyncio.sleep(0.7)
+        logger.info(f"Queuing multilingual opener via TTSSpeakFrame: {opener}")
+        await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(_transport, _client):
