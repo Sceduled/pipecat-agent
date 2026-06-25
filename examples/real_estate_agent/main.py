@@ -63,7 +63,13 @@ PUBLIC_URL = os.environ.get("PUBLIC_URL", "").rstrip("/")  # e.g. https://xxxx.u
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
+    if GROQ_API_KEY:
+        logger.info(f"LLM: Groq llama-3.3-70b-versatile (key ends ...{GROQ_API_KEY[-4:]})")
+    elif OPENAI_API_KEY:
+        logger.info(f"LLM: OpenAI gpt-4o-mini (key ends ...{OPENAI_API_KEY[-4:]})")
+    else:
+        logger.critical("NEITHER OPENAI_API_KEY NOR GROQ_API_KEY is set — all calls will be silent!")
     logger.info("Prestige Realty Voice Agent starting")
     yield
     logger.info("Prestige Realty Voice Agent stopped")
