@@ -50,7 +50,6 @@ load_dotenv(Path(__file__).parent / ".env", override=True)
 
 DEEPGRAM_API_KEY = os.environ.get("DEEPGRAM_API_KEY", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 SARVAM_API_KEY = os.environ.get("SARVAM_API_KEY", "")
 VOBIZ_AUTH_ID = os.environ.get("VOBIZ_AUTH_ID", "")           # X-Auth-ID from console.vobiz.ai
 VOBIZ_AUTH_TOKEN = os.environ.get("VOBIZ_AUTH_TOKEN", "")     # X-Auth-Token from console.vobiz.ai
@@ -64,12 +63,10 @@ PUBLIC_URL = os.environ.get("PUBLIC_URL", "").rstrip("/")  # e.g. https://xxxx.u
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    if GROQ_API_KEY:
-        logger.info(f"LLM: Groq llama-3.3-70b-versatile (key ends ...{GROQ_API_KEY[-4:]})")
-    elif OPENAI_API_KEY:
+    if OPENAI_API_KEY:
         logger.info(f"LLM: OpenAI gpt-4o-mini (key ends ...{OPENAI_API_KEY[-4:]})")
     else:
-        logger.critical("NEITHER OPENAI_API_KEY NOR GROQ_API_KEY is set — all calls will be silent!")
+        logger.critical("OPENAI_API_KEY is not set — all calls will be silent!")
     logger.info("Prestige Realty Voice Agent starting")
     yield
     logger.info("Prestige Realty Voice Agent stopped")
@@ -195,7 +192,6 @@ async def ws_inbound(websocket: WebSocket, agent_id: str = Query("")):
             company_name=agent.company_name,
             knowledge_base=agent.knowledge_base,
             niche=agent.niche,
-            groq_api_key=GROQ_API_KEY,
         )
         
         # Save transcript
@@ -279,7 +275,6 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
             company_name=agent.company_name,
             knowledge_base=agent.knowledge_base,
             niche=agent.niche,
-            groq_api_key=GROQ_API_KEY,
         )
 
         if messages:
@@ -363,7 +358,6 @@ async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(..
             company_name=agent.company_name,
             knowledge_base=agent.knowledge_base,
             niche=agent.niche,
-            groq_api_key=GROQ_API_KEY,
         )
 
         if messages:
