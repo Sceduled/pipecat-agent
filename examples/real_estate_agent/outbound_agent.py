@@ -73,6 +73,7 @@ PHONE CALL SPEAKING RULES:
 - Never ask more than one question at a time.
 - If they are busy, ask for a good callback time, then call update_call_outcome silently.
 - Call update_call_outcome ONLY at the very end of the conversation, not before.
+- After you have said your farewell and update_call_outcome is done, call end_call silently to hang up. Never mention that you are ending the call.
 
 TTS PRONUNCIATION RULES — follow these exactly for natural phone audio:
 - Apartment sizes: always say "two B H K" or "three B H K". Never "2BHK", "3 BHK", or "BHK" alone.
@@ -316,15 +317,14 @@ async def run_outbound(
         lead_name = lead_context.get("name", "")
         company = company_name if company_name else "our company"
         opener = (
-            f"Hello? ... Hi, is this {lead_name}? I'm calling from {company}."
+            f"Hi, is this {lead_name}? I'm calling from {company}."
             if lead_name
-            else f"Hello? ... Hi, I'm calling from {company}. Am I speaking with the right person?"
+            else f"Hi, I'm calling from {company}. Am I speaking with the right person?"
         )
         context.add_message({"role": "assistant", "content": opener})
-        
-        # Ultra-low latency: wait only 200ms before sending audio. 
-        # The "Hello? ..." padding protects the main sentence from SIP clipping.
-        await asyncio.sleep(0.2)
+        # 0.7s guard: phone lines emit a noise burst at ~600ms that fires VAD and
+        # would interrupt TTS if we start earlier. Must sleep past it.
+        await asyncio.sleep(0.7)
         logger.info(f"Queuing outbound opener via TTSSpeakFrame: {opener}")
         await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
 

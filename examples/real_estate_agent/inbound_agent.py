@@ -103,6 +103,7 @@ PHONE CALL SPEAKING RULES:
 - No bullet points, no numbered lists, no markdown, no asterisks, no emojis. Spoken words only.
 - If caller speaks Hindi, reply in a warm Hindi-English mix.
 - Never ask more than one question at a time.
+- When the caller says goodbye or the conversation is clearly complete, say a warm farewell, then call end_call silently to hang up. Never mention that you are ending the call.
 
 TTS PRONUNCIATION RULES — follow these exactly:
 - Apartment sizes: always say "two B H K" or "three B H K". Never "2BHK", "3 BHK", or "BHK" alone.
@@ -238,16 +239,14 @@ async def run_inbound(
     async def on_client_connected(_transport, _client):
         logger.info("Inbound call connected — waiting for phone line to settle")
         company = company_name if company_name else "our company"
-        opener = f"Hello? ... Hi, thanks for calling {company}. How can I help you today?"
-        # Add greeting to context NOW (synchronous, before any await) so any user
-        # speech during the startup window sees a prior assistant turn and the LLM
-        # won't re-introduce. TTSSpeakFrame(append_to_context=False) synthesizes the
-        # audio without double-adding the message after TTS finishes.
+        opener = f"Hi, thanks for calling {company}. How can I help you today?"
+        # Add greeting to context immediately (before any await) so any user
+        # speech during the startup window sees a prior assistant turn — the LLM
+        # won't re-introduce even if the opener is interrupted.
         context.add_message({"role": "assistant", "content": opener})
-        
-        # Ultra-low latency: wait only 200ms before sending audio. 
-        # The "Hello? ..." padding protects the main sentence from SIP clipping.
-        await asyncio.sleep(0.2)
+        # 0.7s guard: phone lines emit a noise burst at ~600ms that fires VAD and
+        # would interrupt TTS if we start earlier. Must sleep past it.
+        await asyncio.sleep(0.7)
         logger.info("Queuing greeting via TTSSpeakFrame")
         await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
 

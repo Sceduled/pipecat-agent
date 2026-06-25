@@ -13,6 +13,7 @@ from datetime import datetime
 
 from loguru import logger
 
+from pipecat.frames.frames import EndFrame
 from pipecat.services.llm_service import FunctionCallParams
 
 # ---------------------------------------------------------------------------
@@ -307,6 +308,22 @@ async def update_call_outcome(
     await params.result_callback({"status": "logged", "outcome": outcome})
 
 
+async def end_call(params: FunctionCallParams, reason: str) -> None:
+    """End the phone call after the farewell is complete.
+
+    Call this only AFTER you have said your farewell to the caller.
+    It closes the connection and hangs up.
+
+    Args:
+        reason: Brief reason — e.g. 'conversation_complete', 'user_requested', 'busy'.
+    """
+    logger.info(f"Ending call: {reason}")
+    await params.result_callback({"status": "call_ending"})
+    # EndFrame flows through the pipeline after any pending TTS audio,
+    # closes the WebSocket, and Vobiz ends the call.
+    await params.pipeline_worker.queue_frames([EndFrame()])
+
+
 # ---------------------------------------------------------------------------
 # Tool lists for each agent
 # ---------------------------------------------------------------------------
@@ -318,6 +335,7 @@ INBOUND_TOOLS = [
     book_site_visit,
     save_lead,
     transfer_to_agent,
+    end_call,
 ]
 
 OUTBOUND_TOOLS = [
@@ -329,4 +347,5 @@ OUTBOUND_TOOLS = [
     save_lead,
     update_call_outcome,
     transfer_to_agent,
+    end_call,
 ]
