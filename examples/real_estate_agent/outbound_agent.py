@@ -322,9 +322,10 @@ async def run_outbound(
             else f"Hi, I'm calling from {company}. Am I speaking with the right person?"
         )
         context.add_message({"role": "assistant", "content": opener})
-        # 0.7s guard: phone lines emit a noise burst at ~600ms that fires VAD and
-        # would interrupt TTS if we start earlier. Must sleep past it.
-        await asyncio.sleep(0.7)
+        # 0.5s guard: on outbound calls the WebSocket opens after the lead answers,
+        # so the worst-case line noise is less severe than inbound. 500ms clears the
+        # typical 300-400ms startup burst while saving 200ms vs the inbound guard.
+        await asyncio.sleep(0.5)
         logger.info(f"Queuing outbound opener via TTSSpeakFrame: {opener}")
         await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
 

@@ -325,9 +325,9 @@ async def run_multilingual_outbound(
         # Add to context synchronously before any await so any user speech during
         # the startup window sees a prior assistant turn — LLM won't re-introduce.
         context.add_message({"role": "assistant", "content": opener})
-        # 0.7s guard: phone lines emit a noise burst at ~600ms that fires VAD and
-        # would interrupt TTS if we start earlier. Must sleep past it.
-        await asyncio.sleep(0.7)
+        # 0.5s guard: outbound WebSocket opens after the lead answers, so startup
+        # noise is less severe than inbound. Saves 200ms vs the inbound 0.7s guard.
+        await asyncio.sleep(0.5)
         logger.info(f"Queuing multilingual opener via TTSSpeakFrame: {opener}")
         await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
 

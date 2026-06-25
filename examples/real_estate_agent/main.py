@@ -20,6 +20,7 @@ Deploying to Railway:
   Point Vobiz inbound DID webhook → https://<railway-url>/voice-xml/inbound
 """
 
+import asyncio
 import os
 import uuid
 from contextlib import asynccontextmanager
@@ -235,22 +236,27 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
 
     await websocket.accept()
     logger.info(f"Outbound WebSocket accepted for session={session}, agent={agent.name}")
-    
-    # Log the call
-    lead_phone = context.get("lead", {}).get("phone", "Unknown Lead")
-    db = SessionLocal()
-    call_log = CallLog(agent_id=agent_id, direction="outbound", caller_number=lead_phone)
-    db.add(call_log)
-    db.commit()
-    db.refresh(call_log)
-    call_log_id = call_log.id
-    db.close()
-    
+
+    lead_phone = context.get("phone", context.get("lead", {}).get("phone", "Unknown Lead"))
+
+    # Write call log in background — does not block pipeline startup
+    async def _log_call():
+        db = SessionLocal()
+        cl = CallLog(agent_id=agent_id, direction="outbound", caller_number=lead_phone)
+        db.add(cl)
+        db.commit()
+        db.refresh(cl)
+        cl_id = cl.id
+        db.close()
+        return cl_id
+
+    log_task = asyncio.create_task(_log_call())
+
     try:
         transport = _make_transport(websocket)
         override_system_prompt = context.get("system_prompt")
         override_voice = context.get("voice")
-        
+
         system_prompt = override_system_prompt if override_system_prompt else agent.system_prompt
         voice = override_voice if override_voice else agent.voice
 
@@ -266,9 +272,10 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
             knowledge_base=agent.knowledge_base,
             niche=agent.niche
         )
-        
+
         if messages:
             transcript = "\n".join([f"{msg['role'].capitalize()}: {msg.get('content', '')}" for msg in messages if msg.get("role") in ["user", "assistant"]])
+            call_log_id = await log_task
             db = SessionLocal()
             db_log = db.query(CallLog).filter(CallLog.id == call_log_id).first()
             if db_log:
@@ -312,20 +319,27 @@ async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(..
 
     await websocket.accept()
     logger.info(f"Multilingual Outbound WebSocket accepted for session={session}, agent={agent.name}")
-    
-    # Log the call
-    lead_phone = context.get("lead", {}).get("phone", "Unknown Lead")
-    db = SessionLocal()
-    call_log = CallLog(agent_id=agent_id, direction="outbound-multilingual", caller_number=lead_phone)
-    db.add(call_log)
-    db.commit()
-    db.close()
-    
+
+    lead_phone = context.get("phone", context.get("lead", {}).get("phone", "Unknown Lead"))
+
+    # Write call log in background — does not block pipeline startup
+    async def _log_call_ml():
+        db = SessionLocal()
+        cl = CallLog(agent_id=agent_id, direction="outbound-multilingual", caller_number=lead_phone)
+        db.add(cl)
+        db.commit()
+        db.refresh(cl)
+        cl_id = cl.id
+        db.close()
+        return cl_id
+
+    log_task_ml = asyncio.create_task(_log_call_ml())
+
     try:
         transport = _make_transport(websocket)
         override_system_prompt = context.get("system_prompt")
         override_voice = context.get("voice")
-        
+
         system_prompt = override_system_prompt if override_system_prompt else agent.system_prompt
         voice = override_voice if override_voice else agent.voice
 
@@ -341,11 +355,12 @@ async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(..
             knowledge_base=agent.knowledge_base,
             niche=agent.niche
         )
-        
+
         if messages:
             transcript = "\n".join([f"{msg['role'].capitalize()}: {msg.get('content', '')}" for msg in messages if msg.get("role") in ["user", "assistant"]])
+            call_log_id_ml = await log_task_ml
             db = SessionLocal()
-            db_log = db.query(CallLog).filter(CallLog.id == call_log.id).first()
+            db_log = db.query(CallLog).filter(CallLog.id == call_log_id_ml).first()
             if db_log:
                 db_log.transcript = transcript
                 db.commit()
