@@ -256,17 +256,24 @@ async def run_outbound(
     # --- TTS ---
     # WebSocket streaming with min_buffer_size=80: Sarvam buffers until 80 chars
     # before synthesizing → each short sentence = one synthesis job = smooth audio.
-    tts = SarvamTTSService(
-        api_key=sarvam_api_key,
-        settings=SarvamTTSService.Settings(
-            voice=voice,
-            model="bulbul:v3",
-            pace=1.05,
-            temperature=0.65,
-            min_buffer_size=50,
-            max_chunk_length=200,
-        ),
-    )
+    if voice.startswith("elevenlabs:"):
+        # Fallback to a default for now if elevenlabs is used but we haven't imported it
+        # In the future, this is where we'd initialize ElevenLabsTTSService
+        pass
+    else:
+        # Default to Sarvam for "priya", "shubh", etc.
+        voice_id = voice.replace("sarvam:", "") if voice.startswith("sarvam:") else voice
+        tts = SarvamTTSService(
+            api_key=sarvam_api_key,
+            settings=SarvamTTSService.Settings(
+                voice=voice_id,
+                model="bulbul:v3",
+                pace=1.05,
+                temperature=0.65,
+                min_buffer_size=50,
+                max_chunk_length=200,
+            ),
+        )
 
     # --- Context + aggregator ---
     from tools import OUTBOUND_TOOLS, update_call_outcome

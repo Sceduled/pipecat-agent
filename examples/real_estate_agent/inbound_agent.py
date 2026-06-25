@@ -146,17 +146,21 @@ async def run_inbound(
     # min_buffer_size=80: Sarvam accumulates 80 chars before starting synthesis,
     # so each short sentence is ONE synthesis job → smooth continuous audio.
     # (With min_buffer_size=25, every 25-char burst is separate → word-by-word.)
-    tts = SarvamTTSService(
-        api_key=sarvam_api_key,
-        settings=SarvamTTSService.Settings(
-            voice=voice,
-            model="bulbul:v3",
-            pace=1.05,
-            temperature=0.65,
-            min_buffer_size=50,
-            max_chunk_length=200,
-        ),
-    )
+    if voice.startswith("elevenlabs:"):
+        pass
+    else:
+        voice_id = voice.replace("sarvam:", "") if voice.startswith("sarvam:") else voice
+        tts = SarvamTTSService(
+            api_key=sarvam_api_key,
+            settings=SarvamTTSService.Settings(
+                voice=voice_id,
+                model="bulbul:v3",
+                pace=1.05,
+                temperature=0.65,
+                min_buffer_size=50,
+                max_chunk_length=200,
+            ),
+        )
 
     # --- Context + aggregator ---
     from tools import INBOUND_TOOLS, transfer_to_agent

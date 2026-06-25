@@ -248,14 +248,20 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
     
     try:
         transport = _make_transport(websocket)
+        override_system_prompt = context.get("system_prompt")
+        override_voice = context.get("voice")
+        
+        system_prompt = override_system_prompt if override_system_prompt else agent.system_prompt
+        voice = override_voice if override_voice else agent.voice
+
         messages = await run_outbound(
             transport=transport,
             session_token=session,
             deepgram_api_key=DEEPGRAM_API_KEY,
             openai_api_key=OPENAI_API_KEY,
             sarvam_api_key=SARVAM_API_KEY,
-            system_prompt=agent.system_prompt,
-            voice=agent.voice,
+            system_prompt=system_prompt,
+            voice=voice,
             company_name=agent.company_name,
             knowledge_base=agent.knowledge_base,
             niche=agent.niche
@@ -317,14 +323,20 @@ async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(..
     
     try:
         transport = _make_transport(websocket)
+        override_system_prompt = context.get("system_prompt")
+        override_voice = context.get("voice")
+        
+        system_prompt = override_system_prompt if override_system_prompt else agent.system_prompt
+        voice = override_voice if override_voice else agent.voice
+
         messages = await run_multilingual_outbound(
             transport=transport,
             session_token=session,
             deepgram_api_key=DEEPGRAM_API_KEY,
             openai_api_key=OPENAI_API_KEY,
             sarvam_api_key=SARVAM_API_KEY,
-            system_prompt=agent.system_prompt,
-            voice=agent.voice,
+            system_prompt=system_prompt,
+            voice=voice,
             company_name=agent.company_name,
             knowledge_base=agent.knowledge_base,
             niche=agent.niche
@@ -375,6 +387,8 @@ async def dial(request: Request):
         "property_name": body.get("property_name", ""),
         "agent_id": agent_id,
         "phone": to_number,
+        "voice": body.get("voice"),
+        "system_prompt": body.get("system_prompt")
     }
 
     from outbound_agent import pending_outbound_sessions
@@ -418,6 +432,8 @@ async def dial_multilingual(request: Request):
         "property_name": body.get("property_name", ""),
         "agent_id": agent_id,
         "phone": to_number,
+        "voice": body.get("voice"),
+        "system_prompt": body.get("system_prompt")
     }
 
     from multilingual_outbound_agent import pending_multilingual_sessions

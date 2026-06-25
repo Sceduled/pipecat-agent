@@ -215,7 +215,9 @@ function App() {
         body: JSON.stringify({
           agent_id: selectedAgentId,
           to: dialPhone,
-          name: dialName
+          name: dialName,
+          voice: config.voice,
+          system_prompt: config.system_prompt
         })
       });
       const data = await res.json();
