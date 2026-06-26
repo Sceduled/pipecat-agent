@@ -238,17 +238,15 @@ async def run_multilingual_outbound(
     )
 
     # --- STT ---
-    stt = lead_context.pop("stt", None)
-    if not stt:
-        stt = DeepgramSTTService(
-            api_key=deepgram_api_key,
-            settings=DeepgramSTTService.Settings(
-                model="nova-2-phonecall",
-                endpointing=300,
-                utterance_end_ms=1000,
-                interim_results=True,
-            ),
-        )
+    stt = DeepgramSTTService(
+        api_key=deepgram_api_key,
+        settings=DeepgramSTTService.Settings(
+            model="nova-2-phonecall",
+            endpointing=300,
+            utterance_end_ms=1000,
+            interim_results=True,
+        ),
+    )
 
     # --- LLM ---
     llm = OpenAILLMService(
@@ -260,23 +258,21 @@ async def run_multilingual_outbound(
     )
 
     # --- TTS ---
-    tts = lead_context.pop("tts", None)
-    if not tts:
-        if voice.startswith("elevenlabs:"):
-            pass
-        else:
-            voice_id = voice.replace("sarvam:", "") if voice.startswith("sarvam:") else voice
-            tts = SarvamTTSService(
-                api_key=sarvam_api_key,
-                settings=SarvamTTSService.Settings(
-                    voice=voice_id,
-                    model="bulbul:v3",
-                    pace=1.05,
-                    temperature=0.65,
-                    min_buffer_size=20,
-                    max_chunk_length=200,
-                ),
-            )
+    if voice.startswith("elevenlabs:"):
+        pass
+    else:
+        voice_id = voice.replace("sarvam:", "") if voice.startswith("sarvam:") else voice
+        tts = SarvamTTSService(
+            api_key=sarvam_api_key,
+            settings=SarvamTTSService.Settings(
+                voice=voice_id,
+                model="bulbul:v3",
+                pace=1.05,
+                temperature=0.65,
+                min_buffer_size=20,
+                max_chunk_length=200,
+            ),
+        )
 
     # --- Context + aggregator ---
     from tools import OUTBOUND_TOOLS, update_call_outcome
@@ -324,14 +320,23 @@ async def run_multilingual_outbound(
             if lead_name
             else f"Namaste, main {company} se Priya bol rahi hoon. Kya aap mujhse baat kar sakte hain?"
         )
-        # Add to context synchronously before any await so any user speech during
-        # the startup window sees a prior assistant turn — LLM won't re-introduce.
         context.add_message({"role": "assistant", "content": opener})
-        # 0.2s guard: outbound WebSocket opens after the lead answers so line
-        # noise is minimal. 200ms clears any click/burst without adding perceptible delay.
-        await asyncio.sleep(0.2)
-        logger.info(f"Queuing multilingual opener via TTSSpeakFrame: {opener}")
+
+        # Wait until the Sarvam TTS WebSocket is actually connected before speaking.
+        from starlette.websockets import WebSocketState as WSState
+        deadline = asyncio.get_event_loop().time() + 8.0
+        while asyncio.get_event_loop().time() < deadline:
+            ws = getattr(tts, "_websocket", None)
+            if ws is not None and ws.state is WSState.OPEN:
+                break
+            await asyncio.sleep(0.05)
+        else:
+            logger.warning("TTS WebSocket did not connect within 8s — speaking anyway")
+
+        logger.info(f"TTS ready. Queuing multilingual opener: {opener}")
         await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
+
+
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(_transport, _client):

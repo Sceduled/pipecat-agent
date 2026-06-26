@@ -412,46 +412,6 @@ async def dial(request: Request):
 
     from outbound_agent import pending_outbound_sessions
     session_token = str(uuid.uuid4())
-
-    # Pre-warm AI connection pool while phone is ringing
-    from database import SessionLocal, Agent as DBAgent
-    db = SessionLocal()
-    agent_db = db.query(DBAgent).filter(DBAgent.id == agent_id).first()
-    db.close()
-    
-    override_voice = body.get("voice")
-    voice = override_voice if override_voice else (agent_db.voice if agent_db else "shubh")
-    voice_id = voice.replace("sarvam:", "") if voice.startswith("sarvam:") else voice
-
-    from prewarmed_services import PrewarmedDeepgramSTTService, PrewarmedSarvamTTSService
-    stt = PrewarmedDeepgramSTTService(
-        api_key=DEEPGRAM_API_KEY,
-        settings=PrewarmedDeepgramSTTService.Settings(
-            model="nova-2-phonecall",
-            endpointing=300,
-            utterance_end_ms=1000,
-            interim_results=True,
-        ),
-    )
-    tts = PrewarmedSarvamTTSService(
-        api_key=SARVAM_API_KEY,
-        settings=PrewarmedSarvamTTSService.Settings(
-            voice=voice_id,
-            model="bulbul:v3",
-            pace=1.05,
-            temperature=0.65,
-            min_buffer_size=20,
-            max_chunk_length=200,
-        ),
-    )
-    import asyncio
-    asyncio.create_task(stt._connect())
-    asyncio.create_task(tts._connect())
-    logger.info(f"Pre-warming Sarvam ({voice_id}) and Deepgram WebSockets for session={session_token}...")
-
-    lead_context["stt"] = stt
-    lead_context["tts"] = tts
-
     pending_outbound_sessions[session_token] = lead_context
 
     base = PUBLIC_URL if PUBLIC_URL else _http_base_url(request)
@@ -497,46 +457,6 @@ async def dial_multilingual(request: Request):
 
     from multilingual_outbound_agent import pending_multilingual_sessions
     session_token = str(uuid.uuid4())
-
-    # Pre-warm AI connection pool while phone is ringing
-    from database import SessionLocal, Agent as DBAgent
-    db = SessionLocal()
-    agent_db = db.query(DBAgent).filter(DBAgent.id == agent_id).first()
-    db.close()
-    
-    override_voice = body.get("voice")
-    voice = override_voice if override_voice else (agent_db.voice if agent_db else "shubh")
-    voice_id = voice.replace("sarvam:", "") if voice.startswith("sarvam:") else voice
-
-    from prewarmed_services import PrewarmedDeepgramSTTService, PrewarmedSarvamTTSService
-    stt = PrewarmedDeepgramSTTService(
-        api_key=DEEPGRAM_API_KEY,
-        settings=PrewarmedDeepgramSTTService.Settings(
-            model="nova-2-phonecall",
-            endpointing=300,
-            utterance_end_ms=1000,
-            interim_results=True,
-        ),
-    )
-    tts = PrewarmedSarvamTTSService(
-        api_key=SARVAM_API_KEY,
-        settings=PrewarmedSarvamTTSService.Settings(
-            voice=voice_id,
-            model="bulbul:v3",
-            pace=1.05,
-            temperature=0.65,
-            min_buffer_size=20,
-            max_chunk_length=200,
-        ),
-    )
-    import asyncio
-    asyncio.create_task(stt._connect())
-    asyncio.create_task(tts._connect())
-    logger.info(f"Pre-warming Sarvam ({voice_id}) and Deepgram WebSockets for multilingual session={session_token}...")
-
-    lead_context["stt"] = stt
-    lead_context["tts"] = tts
-
     pending_multilingual_sessions[session_token] = lead_context
 
     base = PUBLIC_URL if PUBLIC_URL else _http_base_url(request)
