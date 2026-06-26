@@ -34,16 +34,19 @@ async def synthesize_opener(
 
     Returns None on any error so the caller can fall back to live TTS.
     """
+    v_clean = (voice or "shubh").replace("sarvam:", "").lower()
+    if v_clean not in ["shubh", "bulbul", "arjun", "priya", "anushka", "kabir", "roopa"]:
+        logger.info(f"ring_phase_synth: Voice '{voice}' is non-Sarvam — skipping pre-synth")
+        return None
+
     url = "https://api.sarvam.ai/text-to-speech"
     payload = {
         "text": text,
         "target_language_code": "en-IN",
-        "speaker": voice,
+        "speaker": v_clean,
         "sample_rate": sample_rate,
         "enable_preprocessing": True,
         "model": "bulbul:v3",
-        "pace": 1.05,
-        "temperature": 0.65,
     }
     headers = {
         "api-subscription-key": api_key,

@@ -254,21 +254,8 @@ async def run_outbound(
     )
 
     # --- TTS ---
-    if voice.startswith("elevenlabs:"):
-        pass
-    else:
-        voice_id = voice.replace("sarvam:", "") if voice.startswith("sarvam:") else voice
-        tts = SarvamTTSService(
-            api_key=sarvam_api_key,
-            settings=SarvamTTSService.Settings(
-                voice=voice_id,
-                model="bulbul:v3",
-                pace=1.05,
-                temperature=0.65,
-                min_buffer_size=20,
-                max_chunk_length=200,
-            ),
-        )
+    from tts_helper import get_tts_service
+    tts = get_tts_service(voice)
 
     # --- Context + aggregator ---
     from tools import OUTBOUND_TOOLS, update_call_outcome

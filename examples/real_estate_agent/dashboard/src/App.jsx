@@ -501,12 +501,25 @@ function App() {
                 </div>
 
                 <div className="form-group">
-                  <label>Voice Provider</label>
+                  <label>Voice Provider & Voice</label>
                   <select value={config.voice} onChange={e => setConfig({ ...config, voice: e.target.value })}>
-                    <option value="priya">Priya (Female - India)</option>
-                    <option value="bulbul">Bulbul (Female - India)</option>
-                    <option value="arjun">Arjun (Male - India)</option>
-                    <option value="shubh">Shubh (Male - India)</option>
+                    <optgroup label="Sarvam AI (Indian Accents)">
+                      <option value="sarvam:shubh">Shubh (Male - India)</option>
+                      <option value="sarvam:bulbul">Bulbul (Female - India)</option>
+                      <option value="sarvam:arjun">Arjun (Male - India)</option>
+                      <option value="sarvam:priya">Priya (Female - India)</option>
+                    </optgroup>
+                    <optgroup label="ElevenLabs (Ultra Realistic)">
+                      <option value="elevenlabs:neha">Neha (Female - Indian/Expressive)</option>
+                      <option value="elevenlabs:George">George (Male - Warm/British)</option>
+                      <option value="elevenlabs:Sarah">Sarah (Female - Expressive/American)</option>
+                      <option value="elevenlabs:Charlie">Charlie (Male - Natural/Australian)</option>
+                    </optgroup>
+                    <optgroup label="OpenAI (Fast & Clear)">
+                      <option value="openai:alloy">Alloy (Neutral)</option>
+                      <option value="openai:shimmer">Shimmer (Female)</option>
+                      <option value="openai:echo">Echo (Male)</option>
+                    </optgroup>
                   </select>
                 </div>
 
