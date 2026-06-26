@@ -238,15 +238,17 @@ async def run_multilingual_outbound(
     )
 
     # --- STT ---
-    stt = DeepgramSTTService(
-        api_key=deepgram_api_key,
-        settings=DeepgramSTTService.Settings(
-            model="nova-2-phonecall",
-            endpointing=300,
-            utterance_end_ms=1000,
-            interim_results=True,
-        ),
-    )
+    stt = lead_context.pop("stt", None)
+    if not stt:
+        stt = DeepgramSTTService(
+            api_key=deepgram_api_key,
+            settings=DeepgramSTTService.Settings(
+                model="nova-2-phonecall",
+                endpointing=300,
+                utterance_end_ms=1000,
+                interim_results=True,
+            ),
+        )
 
     # --- LLM ---
     llm = OpenAILLMService(
@@ -258,23 +260,23 @@ async def run_multilingual_outbound(
     )
 
     # --- TTS ---
-    # WebSocket streaming with min_buffer_size=80: Sarvam buffers until 80 chars
-    # before synthesizing → each short sentence = one synthesis job = smooth audio.
-    if voice.startswith("elevenlabs:"):
-        pass
-    else:
-        voice_id = voice.replace("sarvam:", "") if voice.startswith("sarvam:") else voice
-        tts = SarvamTTSService(
-            api_key=sarvam_api_key,
-            settings=SarvamTTSService.Settings(
-                voice=voice_id,
-                model="bulbul:v3",
-                pace=1.05,
-                temperature=0.65,
-                min_buffer_size=40,
-                max_chunk_length=200,
-            ),
-        )
+    tts = lead_context.pop("tts", None)
+    if not tts:
+        if voice.startswith("elevenlabs:"):
+            pass
+        else:
+            voice_id = voice.replace("sarvam:", "") if voice.startswith("sarvam:") else voice
+            tts = SarvamTTSService(
+                api_key=sarvam_api_key,
+                settings=SarvamTTSService.Settings(
+                    voice=voice_id,
+                    model="bulbul:v3",
+                    pace=1.05,
+                    temperature=0.65,
+                    min_buffer_size=20,
+                    max_chunk_length=200,
+                ),
+            )
 
     # --- Context + aggregator ---
     from tools import OUTBOUND_TOOLS, update_call_outcome
@@ -287,7 +289,7 @@ async def run_multilingual_outbound(
                 params=VADParams(min_volume=0.15, confidence=0.7, stop_secs=0.3)
             ),
             user_turn_strategies=UserTurnStrategies(
-                stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.4)],
+                stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.25)],
             ),
             user_turn_stop_timeout=2.0,
         ),
