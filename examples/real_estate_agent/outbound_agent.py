@@ -320,31 +320,64 @@ async def run_outbound(
 
         opener_pcm = lead_context.pop("opener_pcm", None)
 
+        # NOTE: use websockets.protocol.State — NOT starlette's WebSocketState which
+        # has no .OPEN attribute and would silently always evaluate False.
+        from websockets.protocol import State as WsState
+
         if opener_pcm:
-            # --- FAST PATH: stream pre-synthesized audio instantly (<50ms) ---
-            logger.info(f"Streaming pre-synthesized opener ({len(opener_pcm)} bytes) instantly")
+            # FAST PATH: stream pre-synth audio paced at real-time rate
+            logger.info(f"Pre-synth opener ready ({len(opener_pcm)} bytes) — streaming paced")
             from ring_phase_synth import pcm_to_chunks
             from pipecat.frames.frames import TTSAudioRawFrame, TTSStartedFrame, TTSStoppedFrame
             import uuid as _uuid
+
+            chunks = pcm_to_chunks(opener_pcm, sample_rate=24000)
             ctx_id = str(_uuid.uuid4())
-            await worker.queue_frames([TTSStartedFrame(context_id=ctx_id)])
-            for chunk in pcm_to_chunks(opener_pcm, sample_rate=24000):
-                await worker.queue_frames([TTSAudioRawFrame(audio=chunk, sample_rate=24000, num_channels=1, context_id=ctx_id)])
-            await worker.queue_frames([TTSStoppedFrame(context_id=ctx_id)])
+
+            async def _stream_paced():
+                """Send pre-synth audio to pipeline at real-time rate (one 20ms chunk per ~18ms)."""
+                await worker.queue_frames([TTSStartedFrame(context_id=ctx_id)])
+                for chunk in chunks:
+                    await worker.queue_frames([
+                        TTSAudioRawFrame(
+                            audio=chunk,
+                            sample_rate=24000,
+                            num_channels=1,
+                            context_id=ctx_id,
+                        )
+                    ])
+                    await asyncio.sleep(0.018)  # pace: 20ms chunks → 18ms sleep + overhead ≈ real-time
+                await worker.queue_frames([TTSStoppedFrame(context_id=ctx_id)])
+                logger.info("Pre-synth opener stream complete")
+
+            asyncio.create_task(_stream_paced())
+
+            # While opener plays (~2.7s), concurrently wait for TTS WS to be ready for turn 2
+            deadline = asyncio.get_event_loop().time() + 6.0
+            while asyncio.get_event_loop().time() < deadline:
+                ws = getattr(tts, "_websocket", None)
+                if ws is not None and ws.state == WsState.OPEN:
+                    logger.info("TTS WebSocket ready for turn 2 (connected during opener playback)")
+                    break
+                await asyncio.sleep(0.05)
+            else:
+                logger.warning("TTS WebSocket not ready after 6s — turn 2 responses may be delayed")
+
         else:
-            # --- FALLBACK: wait for live TTS WebSocket to connect then speak ---
-            logger.warning("No pre-synthesized audio found — waiting for live TTS WebSocket")
-            from starlette.websockets import WebSocketState as WSState
+            # FALLBACK: wait for TTS WS then use TTSSpeakFrame
+            logger.warning("No pre-synth audio — waiting for live TTS WebSocket")
             deadline = asyncio.get_event_loop().time() + 8.0
             while asyncio.get_event_loop().time() < deadline:
                 ws = getattr(tts, "_websocket", None)
-                if ws is not None and ws.state is WSState.OPEN:
+                if ws is not None and ws.state == WsState.OPEN:
                     break
                 await asyncio.sleep(0.05)
             else:
                 logger.warning("TTS WebSocket did not connect within 8s — speaking anyway")
-            logger.info(f"TTS ready. Queuing opener via TTSSpeakFrame: {opener}")
+            logger.info(f"TTS ready. Queuing opener: {opener}")
             await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
+
+
 
 
 
