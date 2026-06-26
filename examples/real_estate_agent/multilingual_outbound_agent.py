@@ -279,11 +279,15 @@ async def run_multilingual_outbound(
     )
 
     # --- Pipeline ---
+    from pipecat.processors.aggregators.sentence import SentenceAggregator
+    sentence_agg = SentenceAggregator()
+
     pipeline = Pipeline([
         transport.input(),
         stt,
         user_aggregator,
         llm,
+        sentence_agg,
         tts,
         transport.output(),
         assistant_aggregator,
