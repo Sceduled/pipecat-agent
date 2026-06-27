@@ -36,14 +36,12 @@ def get_tts_service(voice_str: str):
         voice_id = voice.replace("sarvam:", "").lower() if ":" in voice else v_lower
         if voice_id not in ["shubh", "bulbul", "arjun", "priya", "anushka", "kabir", "roopa", "aayan", "ashutosh", "advait", "amelia", "sophia"]:
             voice_id = "shubh"
-        logger.info(f"tts_helper: Using Sarvam TTS | voice={voice_id} | model=bulbul:v3 | pace=1.1 | buffer=30")
+        logger.info(f"tts_helper: Using Sarvam TTS | voice={voice_id} | model=bulbul:v3")
         from pipecat.services.sarvam.tts import SarvamTTSService
         return SarvamTTSService(
             api_key=os.environ.get("SARVAM_API_KEY", ""),
             settings=SarvamTTSService.Settings(
                 voice=voice_id,
                 model="bulbul:v3",
-                pace=1.1,
-                min_buffer_size=30,
             ),
         )

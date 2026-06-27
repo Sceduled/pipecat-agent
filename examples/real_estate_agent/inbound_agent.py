@@ -154,7 +154,7 @@ async def run_inbound(
         api_key=deepgram_api_key,
         settings=DeepgramSTTService.Settings(
             model="nova-2-phonecall",
-            endpointing=200,
+            endpointing=300,
             utterance_end_ms=1000,
             interim_results=True,
         ),
