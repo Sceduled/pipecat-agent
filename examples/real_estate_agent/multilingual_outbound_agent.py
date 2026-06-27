@@ -243,7 +243,7 @@ async def run_multilingual_outbound(
         settings=DeepgramSTTService.Settings(
             model="nova-2-phonecall",
             endpointing=200,
-            utterance_end_ms=400,
+            utterance_end_ms=1000,
             interim_results=True,
         ),
     )
