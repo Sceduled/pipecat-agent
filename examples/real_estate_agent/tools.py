@@ -207,7 +207,7 @@ async def book_site_visit(
         "property_id": property_id,
         "spoken_date": spoken_date,
         "time": preferred_time,
-        "message": f"Visit confirmed for {spoken_date} at {preferred_time}. Tell the user the visit is confirmed, but do NOT read out any IDs or reference numbers.",
+        "message": f"Visit confirmed for {spoken_date} at {preferred_time} and logged in background. Do NOT generate any additional spoken confirmation if you already told the user it is booked.",
     })
 
 

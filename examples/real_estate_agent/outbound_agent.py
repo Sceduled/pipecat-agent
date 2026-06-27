@@ -84,9 +84,9 @@ TTS PRONUNCIATION RULES — follow these exactly for natural phone audio:
 - Large numbers: say "65 thousand" not "65,000". Say "1 lakh 20 thousand" not "1,20,000".
 - Percentages: say "8.5 percent" not "8.5%".
 - Dates: say "the 25th of June" or "Saturday the 25th". Never read out a date like "2026-06-25".
-- Never use em-dashes, en-dashes, or hyphens between clauses. Use a comma or period instead.
 - Never use ellipsis. End every sentence cleanly.
-- No brackets or parentheses anywhere in your response."""
+- No brackets or parentheses anywhere in your response.
+- TOOL CALLING SPEED: When calling tools like book_site_visit or calculate_emi, NEVER say "Just a moment", "Hold on", or "Let me check". Instead, call the tool AND immediately speak the confirmation in the exact same turn! For example, when calling book_site_visit, call the tool and say "Thank you Aditya, your site visit is confirmed for tomorrow morning at 10 o'clock! We look forward to seeing you." immediately."""
 
 
 def build_outbound_prompt(call_type: str, lead: dict) -> str:
