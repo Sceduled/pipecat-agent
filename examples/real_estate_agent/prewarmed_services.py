@@ -1,6 +1,6 @@
 import asyncio
 from loguru import logger
-from starlette.websockets import WebSocketState as State
+from websockets.protocol import State
 from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.utils.asyncio.task_manager import TaskManager, TaskManagerParams

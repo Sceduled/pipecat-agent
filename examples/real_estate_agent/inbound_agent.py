@@ -26,7 +26,7 @@ from pipecat.turns.user_stop.speech_timeout_user_turn_stop_strategy import (
 )
 from pipecat.turns.user_mute import AlwaysUserMuteStrategy, FunctionCallUserMuteStrategy
 from pipecat.turns.user_turn_strategies import UserTurnStrategies
-from pipecat.services.deepgram.stt import DeepgramSTTService
+from prewarmed_services import PrewarmedDeepgramSTTService as DeepgramSTTService
 from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketTransport
@@ -155,8 +155,8 @@ async def run_inbound(
         api_key=deepgram_api_key,
         settings=DeepgramSTTService.Settings(
             model="nova-2-phonecall",
-            endpointing=300,
-            utterance_end_ms=1000,
+            endpointing=200,
+            utterance_end_ms=400,
             interim_results=True,
         ),
     )

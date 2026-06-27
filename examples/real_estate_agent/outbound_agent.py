@@ -19,7 +19,7 @@ from loguru import logger
 
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
-from pipecat.frames.frames import TTSSpeakFrame, TTSAudioRawFrame, TTSStoppedFrame
+from pipecat.frames.frames import TTSSpeakFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.worker import PipelineParams, PipelineWorker
 from pipecat.processors.aggregators.llm_context import LLMContext
@@ -32,7 +32,7 @@ from pipecat.turns.user_stop.speech_timeout_user_turn_stop_strategy import (
 )
 from pipecat.turns.user_mute import AlwaysUserMuteStrategy, FunctionCallUserMuteStrategy
 from pipecat.turns.user_turn_strategies import UserTurnStrategies
-from pipecat.services.deepgram.stt import DeepgramSTTService
+from prewarmed_services import PrewarmedDeepgramSTTService as DeepgramSTTService
 from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketTransport
@@ -235,12 +235,12 @@ async def run_outbound(
     )
 
     # --- STT ---
-    stt = DeepgramSTTService(
+    stt = lead_context.pop("prewarmed_stt", None) or DeepgramSTTService(
         api_key=deepgram_api_key,
         settings=DeepgramSTTService.Settings(
             model="nova-2-phonecall",
-            endpointing=300,
-            utterance_end_ms=1000,
+            endpointing=200,
+            utterance_end_ms=400,
             interim_results=True,
         ),
     )
@@ -256,7 +256,7 @@ async def run_outbound(
 
     # --- TTS ---
     from tts_helper import get_tts_service
-    tts = get_tts_service(voice)
+    tts = lead_context.pop("prewarmed_tts", None) or get_tts_service(voice)
 
     # --- Context + aggregator ---
     from tools import OUTBOUND_TOOLS, update_call_outcome
@@ -309,41 +309,21 @@ async def run_outbound(
             else f"Hi, I'm calling from {company}. Am I speaking with the right person?"
         )
         context.add_message({"role": "assistant", "content": opener})
-        opener_pcm = lead_context.pop("opener_pcm", None)
+        lead_context.pop("opener_pcm", None)
         lead_context.pop("opener_text", None)
 
         from websockets.protocol import State as WsState
 
-        if opener_pcm:
-            logger.info(f"Speaking pre-synth opener ({len(opener_pcm)} bytes) via pipeline transport for studio quality parity")
-            await worker.queue_frames([
-                TTSAudioRawFrame(audio=opener_pcm, sample_rate=24000, num_channels=1),
-                TTSStoppedFrame(),
-            ])
-            logger.info("Pre-synth opener sent — waiting for TTS WS for turn 2")
+        # Bolna pattern: wait briefly for pre-warmed TTS WebSocket to be open, then speak immediately
+        deadline = asyncio.get_event_loop().time() + 3.0
+        while asyncio.get_event_loop().time() < deadline:
+            ws = getattr(tts, "_websocket", None)
+            if ws is not None and ws.state == WsState.OPEN:
+                break
+            await asyncio.sleep(0.02)
 
-            # TTS connects in background while opener plays. Wait up to 6s.
-            deadline = asyncio.get_event_loop().time() + 6.0
-            while asyncio.get_event_loop().time() < deadline:
-                ws = getattr(tts, "_websocket", None)
-                if ws is not None and ws.state == WsState.OPEN:
-                    logger.info("TTS WebSocket ready for turn 2")
-                    break
-                await asyncio.sleep(0.05)
-            else:
-                logger.warning("TTS WS not ready after 6s — turn 2 may be delayed")
-
-        else:
-            # Bolna pattern fallback: wait briefly for pre-warmed TTS WebSocket to be open, then speak immediately
-            deadline = asyncio.get_event_loop().time() + 3.0
-            while asyncio.get_event_loop().time() < deadline:
-                ws = getattr(tts, "_websocket", None)
-                if ws is not None and ws.state == WsState.OPEN:
-                    break
-                await asyncio.sleep(0.02)
-
-            logger.info(f"Speaking opener via live WebSocket TTS (100% voice parity): {opener}")
-            await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
+        logger.info(f"Speaking opener via live WebSocket TTS (100% voice parity): {opener}")
+        await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
 
 
 
