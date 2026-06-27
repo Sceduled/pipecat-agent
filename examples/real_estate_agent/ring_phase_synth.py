@@ -20,7 +20,7 @@ from loguru import logger
 
 
 # ---------------------------------------------------------------------------
-# Sarvam WebSocket API call — matches live TTS vocoder exactly
+# Sarvam REST API call — fast (<1s) and locked to exact live TTS prosody
 # ---------------------------------------------------------------------------
 
 async def synthesize_opener(
@@ -30,7 +30,7 @@ async def synthesize_opener(
     voice: str,
     sample_rate: int = 24000,
 ) -> bytes | None:
-    """Call Sarvam WebSocket TTS and return raw signed-16-bit PCM bytes.
+    """Call Sarvam REST TTS and return raw signed-16-bit PCM bytes.
 
     Returns None on any error so the caller can fall back to live TTS.
     """
@@ -39,56 +39,45 @@ async def synthesize_opener(
         logger.info(f"ring_phase_synth: Voice '{voice}' is non-Sarvam — skipping pre-synth")
         return None
 
-    url = "wss://api.sarvam.ai/text-to-speech/ws"
-    headers = {
-        "api-subscription-key": api_key,
-    }
-    config_data = {
+    url = "https://api.sarvam.ai/text-to-speech"
+    payload = {
+        "text": text,
         "target_language_code": "en-IN",
         "speaker": v_clean,
-        "speech_sample_rate": str(sample_rate),
+        "sample_rate": sample_rate,
         "enable_preprocessing": True,
-        "min_buffer_size": 50,
-        "max_chunk_length": 150,
-        "output_audio_codec": "linear16",
-        "output_audio_bitrate": "128000",
-        "pace": 1.0,
         "model": "bulbul:v3",
+        "pace": 1.0,
+        "temperature": 0.6,
     }
+    headers = {
+        "api-subscription-key": api_key,
+        "Content-Type": "application/json",
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=6)) as resp:
+                if resp.status != 200:
+                    logger.warning(f"ring_phase_synth: Sarvam REST returned {resp.status}")
+                    return None
+                data = await resp.json()
+    except Exception as e:
+        logger.warning(f"ring_phase_synth: REST call failed: {e}")
+        return None
 
     try:
-        from websockets.asyncio.client import connect as websocket_connect
-        import json as _json
-        audio_chunks = []
-        async with websocket_connect(url, additional_headers=headers, open_timeout=6) as ws:
-            await ws.send(_json.dumps({"type": "config", "data": config_data}))
-            await ws.send(_json.dumps({"type": "text", "data": {"text": text}}))
-
-            while True:
-                try:
-                    msg_raw = await asyncio.wait_for(ws.recv(), timeout=6.0)
-                except asyncio.TimeoutError:
-                    break
-                if isinstance(msg_raw, str):
-                    msg = _json.loads(msg_raw)
-                    msg_type = msg.get("type")
-                    if msg_type == "audio":
-                        audio_b64 = msg.get("data", {}).get("audio")
-                        if audio_b64:
-                            audio_chunks.append(base64.b64decode(audio_b64))
-                    elif msg_type == "event" and msg.get("data", {}).get("event_type") == "final":
-                        break
-                    elif msg_type == "error":
-                        logger.warning(f"ring_phase_synth: Sarvam WS returned error: {msg}")
-                        return None
-        if not audio_chunks:
-            logger.warning("ring_phase_synth: No audio chunks received from Sarvam WS")
+        audios = data.get("audios", [])
+        if not audios:
+            logger.warning("ring_phase_synth: No audios in response")
             return None
-        raw = b"".join(audio_chunks)
-        logger.info(f"ring_phase_synth: Synthesized {len(raw)} PCM bytes via Sarvam WebSocket for opener")
+        raw = base64.b64decode(audios[0])
+        # Strip WAV header if present (starts with 'RIFF')
+        if raw[:4] == b"RIFF":
+            raw = raw[44:]
+        logger.info(f"ring_phase_synth: Synthesized {len(raw)} PCM bytes via REST for opener in <1s")
         return raw
     except Exception as e:
-        logger.warning(f"ring_phase_synth: WS call failed: {e}")
+        logger.warning(f"ring_phase_synth: Decode failed: {e}")
         return None
 
 
