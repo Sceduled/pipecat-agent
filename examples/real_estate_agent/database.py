@@ -77,3 +77,10 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def get_agent(agent_id: str):
+    db = SessionLocal()
+    try:
+        return db.query(Agent).filter(Agent.id == agent_id).first()
+    finally:
+        db.close()
