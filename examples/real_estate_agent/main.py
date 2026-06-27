@@ -414,6 +414,34 @@ async def dial(request: Request):
     session_token = str(uuid.uuid4())
     pending_outbound_sessions[session_token] = lead_context
 
+    # Bolna pattern: pre-synthesize opener audio during ring phase
+    override_voice = body.get("voice")
+    from database import get_agent as _get_agent
+    agent_row = _get_agent(agent_id)
+    voice_for_synth = override_voice or (agent_row.voice if agent_row else "shubh")
+    voice_id_synth = voice_for_synth.replace("sarvam:", "") if voice_for_synth.startswith("sarvam:") else voice_for_synth
+    company_for_synth = agent_row.company_name if agent_row else "our company"
+    lead_name_synth = body.get("name", "")
+    opener_text_synth = (
+        f"Hi, is this {lead_name_synth}? I'm calling from {company_for_synth}."
+        if lead_name_synth
+        else f"Hi, I'm calling from {company_for_synth}. Am I speaking with the right person?"
+    )
+    async def _ring_synth():
+        from ring_phase_synth import synthesize_opener
+        pcm = await synthesize_opener(
+            api_key=os.environ.get("SARVAM_API_KEY", ""),
+            text=opener_text_synth,
+            voice=voice_id_synth,
+        )
+        if pcm:
+            lead_context["opener_pcm"] = pcm
+            lead_context["opener_text"] = opener_text_synth
+            logger.info(f"Ring-phase synthesis done: {len(pcm)} bytes stored for session={session_token}")
+        else:
+            logger.warning(f"Ring-phase synthesis failed for session={session_token} — will use live TTS")
+    asyncio.create_task(_ring_synth())
+
     base = PUBLIC_URL if PUBLIC_URL else _http_base_url(request)
     answer_url = f"{base}/voice-xml/outbound?session={session_token}"
 
@@ -459,6 +487,34 @@ async def dial_multilingual(request: Request):
     from multilingual_outbound_agent import pending_multilingual_sessions
     session_token = str(uuid.uuid4())
     pending_multilingual_sessions[session_token] = lead_context
+
+    # Bolna pattern: pre-synthesize opener during ring phase
+    override_voice = body.get("voice")
+    from database import get_agent as _get_agent
+    agent_row = _get_agent(agent_id)
+    voice_for_synth = override_voice or (agent_row.voice if agent_row else "priya")
+    voice_id_synth = voice_for_synth.replace("sarvam:", "") if voice_for_synth.startswith("sarvam:") else voice_for_synth
+    company_for_synth = agent_row.company_name if agent_row else "our company"
+    lead_name_synth = body.get("name", "")
+    opener_text_synth = (
+        f"Namaste, kya main {lead_name_synth} se baat kar rahi hoon? Main {company_for_synth} se bol rahi hoon."
+        if lead_name_synth
+        else f"Namaste, main {company_for_synth} se bol rahi hoon. Kya aap mujhse baat kar sakte hain?"
+    )
+    async def _ring_synth_ml():
+        from ring_phase_synth import synthesize_opener
+        pcm = await synthesize_opener(
+            api_key=os.environ.get("SARVAM_API_KEY", ""),
+            text=opener_text_synth,
+            voice=voice_id_synth,
+        )
+        if pcm:
+            lead_context["opener_pcm"] = pcm
+            lead_context["opener_text"] = opener_text_synth
+            logger.info(f"Ring-phase ML synthesis done: {len(pcm)} bytes for session={session_token}")
+        else:
+            logger.warning(f"Ring-phase ML synthesis failed for session={session_token}")
+    asyncio.create_task(_ring_synth_ml())
 
     base = PUBLIC_URL if PUBLIC_URL else _http_base_url(request)
     answer_url = f"{base}/voice-xml/outbound-multilingual?session={session_token}"

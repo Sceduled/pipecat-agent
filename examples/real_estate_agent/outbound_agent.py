@@ -304,21 +304,67 @@ async def run_outbound(
             else f"Hi, I'm calling from {company}. Am I speaking with the right person?"
         )
         context.add_message({"role": "assistant", "content": opener})
-        lead_context.pop("opener_pcm", None)
+        opener_pcm = lead_context.pop("opener_pcm", None)
         lead_context.pop("opener_text", None)
 
         from websockets.protocol import State as WsState
 
-        # Bolna pattern: wait briefly for pre-warmed TTS WebSocket to be open, then speak immediately
-        deadline = asyncio.get_event_loop().time() + 3.0
-        while asyncio.get_event_loop().time() < deadline:
-            ws = getattr(tts, "_websocket", None)
-            if ws is not None and ws.state == WsState.OPEN:
-                break
-            await asyncio.sleep(0.02)
+        if opener_pcm:
+            # DIRECT PATH: bypass pipeline → send audio straight to Vobiz WebSocket.
+            logger.info(f"Sending pre-synth opener ({len(opener_pcm)} bytes) directly to Vobiz WS")
+            import base64 as _b64
+            import json as _json
+            from ring_phase_synth import pcm_to_chunks
+            from pipecat.audio.utils import pcm_to_ulaw, create_stream_resampler
 
-        logger.info(f"Speaking opener via live WebSocket TTS (100% voice parity): {opener}")
-        await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
+            resampler = create_stream_resampler()
+            first_chunk = True
+            for chunk in pcm_to_chunks(opener_pcm, sample_rate=24000):
+                ulaw_audio = await pcm_to_ulaw(chunk, 24000, 8000, resampler)
+                if ulaw_audio:
+                    if first_chunk:
+                        logger.info("First audio chunk sent to Vobiz — opener started")
+                        first_chunk = False
+                    payload = _b64.b64encode(ulaw_audio).decode()
+                    msg = _json.dumps({
+                        "event": "playAudio",
+                        "media": {
+                            "contentType": "audio/x-mulaw",
+                            "sampleRate": 8000,
+                            "payload": payload,
+                        },
+                    })
+                    try:
+                        await client_ws.send_text(msg)
+                    except Exception as e:
+                        logger.warning(f"WebSocket send failed during opener: {e}")
+                        break
+                await asyncio.sleep(0.018)  # pace to real-time (~20ms chunks)
+
+            logger.info("Pre-synth opener direct-send complete — waiting for TTS WS for turn 2")
+
+            # TTS connects in background while opener plays. Wait up to 6s.
+            deadline = asyncio.get_event_loop().time() + 6.0
+            while asyncio.get_event_loop().time() < deadline:
+                ws = getattr(tts, "_websocket", None)
+                if ws is not None and ws.state == WsState.OPEN:
+                    logger.info("TTS WebSocket ready for turn 2")
+                    break
+                await asyncio.sleep(0.05)
+            else:
+                logger.warning("TTS WS not ready after 6s — turn 2 may be delayed")
+
+        else:
+            # Bolna pattern fallback: wait briefly for pre-warmed TTS WebSocket to be open, then speak immediately
+            deadline = asyncio.get_event_loop().time() + 3.0
+            while asyncio.get_event_loop().time() < deadline:
+                ws = getattr(tts, "_websocket", None)
+                if ws is not None and ws.state == WsState.OPEN:
+                    break
+                await asyncio.sleep(0.02)
+
+            logger.info(f"Speaking opener via live WebSocket TTS (100% voice parity): {opener}")
+            await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
 
 
 
