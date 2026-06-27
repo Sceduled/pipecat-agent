@@ -19,7 +19,7 @@ from loguru import logger
 
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
-from pipecat.frames.frames import TTSSpeakFrame, TTSAudioRawFrame
+from pipecat.frames.frames import TTSSpeakFrame, TTSAudioRawFrame, TTSStoppedFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.worker import PipelineParams, PipelineWorker
 from pipecat.processors.aggregators.llm_context import LLMContext
@@ -30,6 +30,7 @@ from pipecat.processors.aggregators.llm_response_universal import (
 from pipecat.turns.user_stop.speech_timeout_user_turn_stop_strategy import (
     SpeechTimeoutUserTurnStopStrategy,
 )
+from pipecat.turns.user_mute import AlwaysUserMuteStrategy, FunctionCallUserMuteStrategy
 from pipecat.turns.user_turn_strategies import UserTurnStrategies
 from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.openai.llm import OpenAILLMService
@@ -267,6 +268,10 @@ async def run_multilingual_outbound(
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(
+            user_mute_strategies=[
+                AlwaysUserMuteStrategy(),
+                FunctionCallUserMuteStrategy(),
+            ],
             vad_analyzer=SileroVADAnalyzer(
                 params=VADParams(min_volume=0.15, confidence=0.7, stop_secs=0.3)
             ),
@@ -314,7 +319,10 @@ async def run_multilingual_outbound(
 
         if opener_pcm:
             logger.info(f"Speaking pre-synth opener ({len(opener_pcm)} bytes) via pipeline transport for studio quality parity")
-            await worker.queue_frames([TTSAudioRawFrame(audio=opener_pcm, sample_rate=24000, num_channels=1)])
+            await worker.queue_frames([
+                TTSAudioRawFrame(audio=opener_pcm, sample_rate=24000, num_channels=1),
+                TTSStoppedFrame(),
+            ])
             logger.info("Pre-synth opener sent — waiting for TTS WS for turn 2")
 
             # TTS connects in background while opener plays. Wait up to 6s.

@@ -38,6 +38,7 @@ from pipecat.processors.frame_processor import FrameProcessor
 from pipecat.turns.user_stop.speech_timeout_user_turn_stop_strategy import (
     SpeechTimeoutUserTurnStopStrategy,
 )
+from pipecat.turns.user_mute import AlwaysUserMuteStrategy, FunctionCallUserMuteStrategy
 from pipecat.turns.user_turn_strategies import UserTurnStrategies
 from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.openai.llm import OpenAILLMService
@@ -285,6 +286,10 @@ async def run_outbound(
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(
+            user_mute_strategies=[
+                AlwaysUserMuteStrategy(),
+                FunctionCallUserMuteStrategy(),
+            ],
             vad_analyzer=SileroVADAnalyzer(
                 params=VADParams(min_volume=0.1, confidence=0.5, stop_secs=0.3)
             ),

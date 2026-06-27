@@ -24,6 +24,7 @@ from pipecat.processors.aggregators.llm_response_universal import (
 from pipecat.turns.user_stop.speech_timeout_user_turn_stop_strategy import (
     SpeechTimeoutUserTurnStopStrategy,
 )
+from pipecat.turns.user_mute import AlwaysUserMuteStrategy, FunctionCallUserMuteStrategy
 from pipecat.turns.user_turn_strategies import UserTurnStrategies
 from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.openai.llm import OpenAILLMService
@@ -191,6 +192,10 @@ async def run_inbound(
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(
+            user_mute_strategies=[
+                AlwaysUserMuteStrategy(),
+                FunctionCallUserMuteStrategy(),
+            ],
             # min_volume=0.1: phone audio amplitude is ~0.05–0.25 (µ-law decoded).
             # The default 0.6 never triggers on phone lines — bot goes deaf after opener.
             vad_analyzer=SileroVADAnalyzer(
