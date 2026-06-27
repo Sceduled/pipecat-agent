@@ -70,10 +70,12 @@ async def synthesize_opener(
             logger.warning("ring_phase_synth: No audios in response")
             return None
         raw = base64.b64decode(audios[0])
-        # Strip WAV header if present (starts with 'RIFF')
+        import io, wave
         if raw[:4] == b"RIFF":
-            raw = raw[44:]
-        logger.info(f"ring_phase_synth: Synthesized {len(raw)} PCM bytes for opener")
+            with wave.open(io.BytesIO(raw), "rb") as wf:
+                pcm = wf.readframes(wf.getnframes())
+                logger.info(f"ring_phase_synth: Extracted {len(pcm)} clean PCM bytes (framerate={wf.getframerate()})")
+                return pcm
         return raw
     except Exception as e:
         logger.warning(f"ring_phase_synth: Decode failed: {e}")

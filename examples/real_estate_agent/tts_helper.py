@@ -44,5 +44,6 @@ def get_tts_service(voice_str: str):
                 voice=voice_id,
                 model="bulbul:v3",
                 pace=1.1,
+                enable_preprocessing=True,
             ),
         )

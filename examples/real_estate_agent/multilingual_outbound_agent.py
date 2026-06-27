@@ -19,7 +19,7 @@ from loguru import logger
 
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
-from pipecat.frames.frames import TTSSpeakFrame
+from pipecat.frames.frames import TTSSpeakFrame, TTSAudioRawFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.worker import PipelineParams, PipelineWorker
 from pipecat.processors.aggregators.llm_context import LLMContext
@@ -80,7 +80,7 @@ PHONE CALL SPEAKING RULES:
 - After you have said your farewell and update_call_outcome is done, call end_call silently to hang up. Never mention that you are ending the call.
 
 TTS PRONUNCIATION RULES — follow these exactly for natural phone audio:
-- Apartment sizes: always say "two B H K" or "three B H K". Never "2BHK", "3 BHK", or "BHK" alone.
+- Apartment sizes: say conversational real estate terms like "3 BHK apartment" or "2 BHK". Never "2BHK", "3 BHK", or "BHK" alone.
 - Money in lakhs: say "85 lakhs" or "90 lakhs". Never "85L", "85 L", or any short form.
 - Money in crores: say "1.5 crores" or "2 crores". Never "1.5 Cr", "2 Cr", or any short form.
 - Area: always say "square feet". Never "sq ft", "sqft", or "sq.ft".
@@ -313,38 +313,9 @@ async def run_multilingual_outbound(
         from websockets.protocol import State as WsState
 
         if opener_pcm:
-            # DIRECT PATH: bypass pipeline → send audio straight to Vobiz WebSocket.
-            logger.info(f"Sending pre-synth opener ({len(opener_pcm)} bytes) directly to Vobiz WS")
-            import base64 as _b64
-            import json as _json
-            from ring_phase_synth import pcm_to_chunks
-            from pipecat.audio.utils import pcm_to_ulaw, create_stream_resampler
-
-            resampler = create_stream_resampler()
-            first_chunk = True
-            for chunk in pcm_to_chunks(opener_pcm, sample_rate=24000):
-                ulaw_audio = await pcm_to_ulaw(chunk, 24000, 8000, resampler)
-                if ulaw_audio:
-                    if first_chunk:
-                        logger.info("First audio chunk sent to Vobiz — opener started")
-                        first_chunk = False
-                    payload = _b64.b64encode(ulaw_audio).decode()
-                    msg = _json.dumps({
-                        "event": "playAudio",
-                        "media": {
-                            "contentType": "audio/x-mulaw",
-                            "sampleRate": 8000,
-                            "payload": payload,
-                        },
-                    })
-                    try:
-                        await client_ws.send_text(msg)
-                    except Exception as e:
-                        logger.warning(f"WebSocket send failed during opener: {e}")
-                        break
-                await asyncio.sleep(0.018)  # pace to real-time (~20ms chunks)
-
-            logger.info("Pre-synth opener direct-send complete — waiting for TTS WS for turn 2")
+            logger.info(f"Speaking pre-synth opener ({len(opener_pcm)} bytes) via pipeline transport for studio quality parity")
+            await worker.queue_frames([TTSAudioRawFrame(audio=opener_pcm, sample_rate=24000, num_channels=1)])
+            logger.info("Pre-synth opener sent — waiting for TTS WS for turn 2")
 
             # TTS connects in background while opener plays. Wait up to 6s.
             deadline = asyncio.get_event_loop().time() + 6.0
