@@ -425,40 +425,6 @@ async def dial(request: Request):
         answer_url=answer_url,
     )
 
-    # Bolna pattern: pre-synthesize opener audio during ring phase so it
-    # plays instantly when the lead answers (zero TTS cold-start delay).
-    from database import SessionLocal, Agent as DBAgent
-    db = SessionLocal()
-    agent_row = db.query(DBAgent).filter(DBAgent.id == agent_id).first()
-    db.close()
-    override_voice = body.get("voice")
-    voice_for_synth = override_voice or (agent_row.voice if agent_row else "shubh")
-    voice_id_synth = voice_for_synth.replace("sarvam:", "") if voice_for_synth.startswith("sarvam:") else voice_for_synth
-    company_for_synth = agent_row.company_name if agent_row else "our company"
-    lead_name_synth = body.get("name", "")
-    opener_text_synth = (
-        f"Hi, is this {lead_name_synth}? I'm calling from {company_for_synth}."
-        if lead_name_synth
-        else f"Hi, I'm calling from {company_for_synth}. Am I speaking with the right person?"
-    )
-
-    async def _ring_synth():
-        from ring_phase_synth import synthesize_opener
-        pcm = await synthesize_opener(
-            api_key=SARVAM_API_KEY,
-            text=opener_text_synth,
-            voice=voice_id_synth,
-        )
-        if pcm:
-            lead_context["opener_pcm"] = pcm
-            lead_context["opener_text"] = opener_text_synth
-            logger.info(f"Ring-phase synthesis done: {len(pcm)} bytes stored for session={session_token}")
-        else:
-            logger.warning(f"Ring-phase synthesis failed for session={session_token} — will use live TTS")
-
-    asyncio.create_task(_ring_synth())
-    logger.info(f"Ring-phase synthesis started for voice={voice_id_synth} session={session_token}")
-
     return {"status": "dialing", "to": to_number, "session": session_token, "vobiz": result}
 
 
@@ -504,38 +470,6 @@ async def dial_multilingual(request: Request):
         vobiz_auth_token=VOBIZ_AUTH_TOKEN,
         answer_url=answer_url,
     )
-
-    # Bolna pattern: pre-synthesize opener during ring phase
-    from database import SessionLocal, Agent as DBAgent
-    db = SessionLocal()
-    agent_row = db.query(DBAgent).filter(DBAgent.id == agent_id).first()
-    db.close()
-    override_voice = body.get("voice")
-    voice_for_synth = override_voice or (agent_row.voice if agent_row else "priya")
-    voice_id_synth = voice_for_synth.replace("sarvam:", "") if voice_for_synth.startswith("sarvam:") else voice_for_synth
-    company_for_synth = agent_row.company_name if agent_row else "our company"
-    lead_name_synth = body.get("name", "")
-    opener_text_synth = (
-        f"Namaste, kya main {lead_name_synth} se baat kar rahi hoon? Main {company_for_synth} se bol rahi hoon."
-        if lead_name_synth
-        else f"Namaste, main {company_for_synth} se bol rahi hoon. Kya aap mujhse baat kar sakte hain?"
-    )
-
-    async def _ring_synth_ml():
-        from ring_phase_synth import synthesize_opener
-        pcm = await synthesize_opener(
-            api_key=SARVAM_API_KEY,
-            text=opener_text_synth,
-            voice=voice_id_synth,
-        )
-        if pcm:
-            lead_context["opener_pcm"] = pcm
-            lead_context["opener_text"] = opener_text_synth
-            logger.info(f"Ring-phase ML synthesis done: {len(pcm)} bytes for session={session_token}")
-        else:
-            logger.warning(f"Ring-phase ML synthesis failed for session={session_token}")
-
-    asyncio.create_task(_ring_synth_ml())
 
     return {"status": "dialing_multilingual", "to": to_number, "session": session_token, "vobiz": result}
 

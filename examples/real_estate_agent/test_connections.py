@@ -203,46 +203,11 @@ async def test_openai():
         return False
 
 
-# ---------------------------------------------------------------------------
-# Test 5: Ring-phase synthesis round-trip (the new feature)
-# ---------------------------------------------------------------------------
-
-async def test_ring_phase_synth():
-    name = "Ring-Phase Synthesis (new feature)"
-    try:
-        from ring_phase_synth import synthesize_opener, pcm_to_chunks
-        pcm = await synthesize_opener(
-            api_key=SARVAM_API_KEY,
-            text="Hi, is this Adithya? I'm calling from Skyline Developers.",
-            voice="shubh",
-        )
-        if not pcm:
-            print(f"{FAIL}  {name}: synthesize_opener returned None")
-            return False
-        chunks = pcm_to_chunks(pcm, sample_rate=24000)
-        duration_ms = len(chunks) * 20
-        print(f"{PASS}  {name}: {len(pcm)} bytes -> {len(chunks)} chunks -> ~{duration_ms}ms audio")
-        return True
-    except Exception as e:
-        print(f"{FAIL}  {name}: {e}")
-        return False
-
-
-# ---------------------------------------------------------------------------
-# Runner
-# ---------------------------------------------------------------------------
-
-async def main():
-    print("\n" + "="*60)
-    print("  AI Connection Verification Suite")
-    print("="*60 + "\n")
-
     results = await asyncio.gather(
         test_sarvam_rest(),
         test_sarvam_ws(),
         test_deepgram_ws(),
         test_openai(),
-        test_ring_phase_synth(),
         return_exceptions=True,
     )
 

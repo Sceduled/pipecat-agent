@@ -241,8 +241,8 @@ async def run_multilingual_outbound(
         api_key=deepgram_api_key,
         settings=DeepgramSTTService.Settings(
             model="nova-2-phonecall",
-            endpointing=300,
-            utterance_end_ms=1000,
+            endpointing=200,
+            utterance_end_ms=400,
             interim_results=True,
         ),
     )
@@ -307,65 +307,21 @@ async def run_multilingual_outbound(
             else f"Namaste, main {company} se Priya bol rahi hoon. Kya aap mujhse baat kar sakte hain?"
         )
         context.add_message({"role": "assistant", "content": opener})
-        opener_pcm = lead_context.pop("opener_pcm", None)
+        lead_context.pop("opener_pcm", None)
+        lead_context.pop("opener_text", None)
 
         from websockets.protocol import State as WsState
 
-        if opener_pcm:
-            logger.info(f"Sending ML pre-synth opener ({len(opener_pcm)} bytes) directly to Vobiz WS")
-            import base64 as _b64
-            import json as _json
-            from ring_phase_synth import pcm_to_chunks
-            from pipecat.audio.utils import pcm_to_ulaw, create_stream_resampler
+        # Bolna pattern: wait briefly for pre-warmed TTS WebSocket to be open, then speak immediately
+        deadline = asyncio.get_event_loop().time() + 3.0
+        while asyncio.get_event_loop().time() < deadline:
+            ws = getattr(tts, "_websocket", None)
+            if ws is not None and ws.state == WsState.OPEN:
+                break
+            await asyncio.sleep(0.02)
 
-            resampler = create_stream_resampler()
-            first_chunk = True
-            for chunk in pcm_to_chunks(opener_pcm, sample_rate=24000):
-                ulaw_audio = await pcm_to_ulaw(chunk, 24000, 8000, resampler)
-                if ulaw_audio:
-                    if first_chunk:
-                        logger.info("First ML audio chunk sent to Vobiz — opener started")
-                        first_chunk = False
-                    payload = _b64.b64encode(ulaw_audio).decode()
-                    msg = _json.dumps({
-                        "event": "playAudio",
-                        "media": {
-                            "contentType": "audio/x-mulaw",
-                            "sampleRate": 8000,
-                            "payload": payload,
-                        },
-                    })
-                    try:
-                        await client_ws.send_text(msg)
-                    except Exception as e:
-                        logger.warning(f"ML WebSocket send failed during opener: {e}")
-                        break
-                await asyncio.sleep(0.018)
-
-            logger.info("ML pre-synth opener direct-send complete")
-            deadline = asyncio.get_event_loop().time() + 6.0
-            while asyncio.get_event_loop().time() < deadline:
-                ws = getattr(tts, "_websocket", None)
-                if ws is not None and ws.state == WsState.OPEN:
-                    logger.info("ML TTS WebSocket ready for turn 2")
-                    break
-                await asyncio.sleep(0.05)
-            else:
-                logger.warning("ML TTS WS not ready after 6s — turn 2 may be delayed")
-
-        else:
-            logger.warning("No ML pre-synth audio — waiting for TTS WebSocket")
-            deadline = asyncio.get_event_loop().time() + 8.0
-            while asyncio.get_event_loop().time() < deadline:
-                ws = getattr(tts, "_websocket", None)
-                if ws is not None and ws.state == WsState.OPEN:
-                    break
-                await asyncio.sleep(0.05)
-            else:
-                logger.warning("ML TTS WebSocket did not connect within 8s — speaking anyway")
-            elapsed = 8.0 - max(0.0, deadline - asyncio.get_event_loop().time())
-            logger.info(f"ML TTS ready in ~{elapsed:.1f}s. Speaking opener via TTSSpeakFrame")
-            await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
+        logger.info(f"Speaking opener via live WebSocket TTS (100% voice parity): {opener}")
+        await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
 
 
 

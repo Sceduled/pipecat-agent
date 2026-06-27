@@ -154,8 +154,8 @@ async def run_inbound(
         api_key=deepgram_api_key,
         settings=DeepgramSTTService.Settings(
             model="nova-2-phonecall",
-            endpointing=300,
-            utterance_end_ms=1000,
+            endpointing=200,
+            utterance_end_ms=400,
             interim_results=True,
         ),
     )
@@ -234,7 +234,16 @@ async def run_inbound(
         # 0.7s guard: phone lines emit a noise burst at ~600ms that fires VAD and
         # would interrupt TTS if we start earlier. Must sleep past it.
         await asyncio.sleep(0.7)
-        logger.info("Queuing greeting via TTSSpeakFrame")
+
+        from websockets.protocol import State as WsState
+        deadline = asyncio.get_event_loop().time() + 3.0
+        while asyncio.get_event_loop().time() < deadline:
+            ws = getattr(tts, "_websocket", None)
+            if ws is not None and ws.state == WsState.OPEN:
+                break
+            await asyncio.sleep(0.02)
+
+        logger.info("Queuing greeting via live WebSocket TTSSpeakFrame")
         await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
 
     @transport.event_handler("on_client_disconnected")
