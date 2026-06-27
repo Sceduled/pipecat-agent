@@ -47,8 +47,7 @@ async def synthesize_opener(
         "sample_rate": sample_rate,
         "enable_preprocessing": True,
         "model": "bulbul:v3",
-        "pace": 1.0,
-        "temperature": 0.6,
+        "pace": 1.1,
     }
     headers = {
         "api-subscription-key": api_key,
