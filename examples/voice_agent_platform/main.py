@@ -708,6 +708,16 @@ async def update_agent(agent_id: str, agent: AgentUpdate, db: Session = Depends(
     db.refresh(db_agent)
     return db_agent
 
+@app.delete("/api/agents/{agent_id}")
+async def delete_agent(agent_id: str, db: Session = Depends(get_db)):
+    db_agent = db.query(DBAgent).filter(DBAgent.id == agent_id).first()
+    if not db_agent:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Agent not found")
+    db.delete(db_agent)
+    db.commit()
+    return {"status": "deleted"}
+
 @app.post("/api/agents/{agent_id}/upload")
 async def upload_knowledge(agent_id: str, request: Request, db: Session = Depends(get_db)):
     db_agent = db.query(DBAgent).filter(DBAgent.id == agent_id).first()

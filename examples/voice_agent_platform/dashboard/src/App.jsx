@@ -116,8 +116,9 @@ function App() {
 
   const handleCreateFromTemplate = async (template) => {
     try {
+      const randomId = Math.floor(100 + Math.random() * 900);
       const newAgent = {
-        name: `New ${template.name}`,
+        name: `${template.name} #${randomId}`,
         niche: template.id,
         agent_type: selectedType,
         system_prompt: template.prompt,
@@ -190,6 +191,23 @@ function App() {
       console.error('Failed to save config:', err);
     }
     setIsSaving(false);
+  };
+
+  const handleDeleteAgent = async (agentId, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this agent? This action cannot be undone.")) return;
+    try {
+      const res = await fetch(`${API_BASE}/agents/${agentId}`, { method: 'DELETE' });
+      if (res.ok) {
+        await fetchAgents();
+        if (selectedAgentId === agentId) {
+          setView('library');
+          setSelectedAgentId(null);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to delete agent:', err);
+    }
   };
 
   const handleAddPhone = async () => {
@@ -347,15 +365,24 @@ function App() {
                       </span>
                     </div>
                   </div>
-                  <div>
-                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem' }}>{agent.name}</h3>
-                    <p 
-                      style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'copy', fontFamily: 'monospace' }}
-                      title="Click to copy ID"
-                      onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(agent.id); alert('Agent ID copied!'); }}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '1rem' }}>
+                    <div>
+                      <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem' }}>{agent.name}</h3>
+                      <p 
+                        style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'copy', fontFamily: 'monospace' }}
+                        title="Click to copy ID"
+                        onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(agent.id); alert('Agent ID copied!'); }}
+                      >
+                        ID: {agent.id}
+                      </p>
+                    </div>
+                    <button 
+                      onClick={(e) => handleDeleteAgent(agent.id, e)}
+                      style={{ background: 'rgba(255, 50, 50, 0.1)', border: '1px solid rgba(255, 50, 50, 0.2)', color: '#ff4d4d', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      title="Delete Agent"
                     >
-                      ID: {agent.id}
-                    </p>
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 </motion.div>
               ))}
@@ -649,7 +676,7 @@ function App() {
                       placeholder="e.g. Hi {{lead_name}}, I'm calling from {{company_name}} regarding your inquiry."
                     />
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      Supports zero-code variable interpolation: <code style={{ color: 'var(--accent-color)' }}>{{lead_name}}</code>, <code style={{ color: 'var(--accent-color)' }}>{{company_name}}</code>. Leave empty for default auto-greeting.
+                      Supports zero-code variable interpolation: <code style={{ color: 'var(--accent-color)' }}>{"{{lead_name}}"}</code>, <code style={{ color: 'var(--accent-color)' }}>{"{{company_name}}"}</code>. Leave empty for default auto-greeting.
                     </p>
                   </div>
 
@@ -661,7 +688,7 @@ function App() {
                       onChange={e => setConfig({ ...config, system_prompt: e.target.value })}
                     />
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      Define personality, goals, and handling rules. You can inject variables like <code style={{ color: 'var(--accent-color)' }}>{{lead_name}}</code> directly into the prompt.
+                      Define personality, goals, and handling rules. You can inject variables like <code style={{ color: 'var(--accent-color)' }}>{"{{lead_name}}"}</code> directly into the prompt.
                     </p>
                   </div>
                 </div>
@@ -683,7 +710,13 @@ function App() {
                   <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>The AI has instant access to everything written here.</p>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem' }}>
+                  <button 
+                    onClick={(e) => handleDeleteAgent(selectedAgentId, e)}
+                    style={{ background: 'rgba(255, 50, 50, 0.1)', border: '1px solid rgba(255, 50, 50, 0.2)', color: '#ff4d4d', padding: '0.75rem 1.25rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}
+                  >
+                    <Trash2 size={18} /> Delete Agent
+                  </button>
                   <button className="btn-primary" onClick={handleSaveConfig} disabled={isSaving}>
                     <Save size={18} /> {isSaving ? 'Saving...' : 'Save Agent'}
                   </button>
