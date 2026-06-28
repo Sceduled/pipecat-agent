@@ -139,6 +139,16 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
                 voice=voice or "aura-asteria-en"
             )
         )
+    elif provider == "openai":
+        from pipecat.services.openai.tts import OpenAITTSService
+        api_key = os.environ.get("OPENAI_API_KEY", "")
+        if not api_key:
+            logger.warning("OPENAI_API_KEY is missing from environment!")
+        return OpenAITTSService(
+            api_key=api_key,
+            voice=voice or "alloy",
+            speed=pace
+        )
     else:
         logger.warning(f"Unknown TTS provider '{provider}', falling back to Sarvam")
         return create_tts_service("sarvam", "priya", pace, prewarmed)
