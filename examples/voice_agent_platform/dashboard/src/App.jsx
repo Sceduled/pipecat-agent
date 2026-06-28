@@ -648,22 +648,31 @@ function App() {
                         <select className="text-input" value={config.llm_model || 'gpt-4o-mini'} onChange={e => setConfig({ ...config, llm_model: e.target.value })}>
                           {config.llm_provider === 'groq' ? (
                             <>
+                              <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile (Latest)</option>
                               <option value="llama-3.1-70b-versatile">Llama 3.1 70B Versatile</option>
-                              <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
+                              <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant (Ultra Fast)</option>
+                              <option value="mixtral-8x7b-32768">Mixtral 8x7B 32k</option>
+                              <option value="gemma2-9b-it">Gemma 2 9B IT</option>
                             </>
                           ) : config.llm_provider === 'anthropic' ? (
                             <>
-                              <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                              <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                              <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (Intelligent)</option>
+                              <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku (Fast)</option>
+                              <option value="claude-3-opus-20240229">Claude 3 Opus (Complex Reasoning)</option>
                             </>
                           ) : config.llm_provider === 'together' ? (
                             <>
+                              <option value="meta-llama/Meta-Llama-3.3-70B-Instruct-Turbo">Llama 3.3 70B Turbo</option>
                               <option value="meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo">Llama 3.1 70B Turbo</option>
+                              <option value="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo">Llama 3.1 8B Turbo</option>
+                              <option value="Qwen/Qwen2.5-72B-Instruct-Turbo">Qwen 2.5 72B Turbo</option>
                             </>
                           ) : (
                             <>
                               <option value="gpt-4o-mini">GPT-4o Mini (Fast & Cheap)</option>
                               <option value="gpt-4o">GPT-4o (Most Intelligent)</option>
+                              <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
                             </>
                           )}
                         </select>
@@ -842,29 +851,77 @@ function App() {
                         >
                           {(config.tts_provider === 'elevenlabs' || (config.voice && config.voice.startsWith('elevenlabs'))) ? (
                             <>
-                              <option value="elevenlabs:21m00Tcm4TlvDq8ikWAM">Rachel (Calm Female)</option>
-                              <option value="elevenlabs:EXAVITQu4vr4xnSDxMaL">Bella (Soft Female)</option>
+                              <option value="elevenlabs:neha">Neha (Indian Female Conversational)</option>
+                              <option value="elevenlabs:aarav">Aarav (Indian Male Executive)</option>
+                              <option value="elevenlabs:priya">Priya (Indian Female Soft)</option>
+                              <option value="elevenlabs:rahul">Rahul (Indian Male Clear)</option>
+                              <option value="elevenlabs:21m00Tcm4TlvDq8ikWAM">Rachel (Calm American Female)</option>
+                              <option value="elevenlabs:EXAVITQu4vr4xnSDxMaL">Sarah (Mature Reassuring Female)</option>
+                              <option value="elevenlabs:FGY2WhTYpPnrIDTdsKH5">Laura (Enthusiastic Quirky Female)</option>
+                              <option value="elevenlabs:JBFqnCBsd6RMkjVDRZzb">George (Warm British Storyteller)</option>
+                              <option value="elevenlabs:IKne3meq5aSn9XLyUdCD">Charlie (Deep Confident Male)</option>
+                              <option value="elevenlabs:hpp4J3VqNfWAUOO0d1Us">Bella (Professional Bright Female)</option>
                               <option value="elevenlabs:ErXwobaYiN019PkySvjV">Antoni (Well-rounded Male)</option>
-                              <option value="elevenlabs:JBFqnCBsd6RMkjVDRZzb">George (British Male)</option>
+                              <option value="elevenlabs:cgSgspJ2msm6clMCkdW9">Jessica (Playful Bright Warm)</option>
+                              <option value="elevenlabs:cjVigY5qzO86Huf0OWal">Eric (Smooth Trustworthy Male)</option>
+                              <option value="elevenlabs:iP95p4xoKVk53GoZ742B">Chris (Charming Down-to-Earth)</option>
+                              <option value="elevenlabs:nPczCjzI2devNBz1zQrb">Brian (Deep Resonant Comforting)</option>
+                              <option value="elevenlabs:onwK4e9ZLuTAKqWW03F9">Daniel (Steady Broadcaster)</option>
+                              <option value="elevenlabs:pFZP5JQG7iQjIQuC4Bku">Lily (Velvety Actress)</option>
+                              <option value="elevenlabs:pNInz6obpgDQGcFmaJgB">Adam (Dominant Firm Male)</option>
+                              <option value="elevenlabs:pqHfZKP75CvOlQylNhV4">Bill (Wise Balanced Male)</option>
+                              <option value="elevenlabs:CwhRBWXzGAHq8TQ4Fs17">Roger (Laid-Back Resonant)</option>
+                              <option value="elevenlabs:N2lVS1w4EtoT3dr4eOWO">Callum (Husky Trickster)</option>
+                              <option value="elevenlabs:SAz9YHcvj6GT2YYXdXww">River (Relaxed Neutral)</option>
+                              <option value="elevenlabs:SOYHLrjzK2X1ezoPC6cr">Harry (Fierce Warrior)</option>
+                              <option value="elevenlabs:TX3LPaxmHKxFdv7VOQHJ">Liam (Energetic Creator)</option>
+                              <option value="elevenlabs:Xb7hH8MSUJpSbSDYk0k2">Alice (Clear Engaging Educator)</option>
+                              <option value="elevenlabs:XrExE9yKIg1WjnnlVkGX">Matilda (Knowledgeable Professional)</option>
+                              <option value="elevenlabs:bIHbv24MWmeRgasZH58o">Will (Relaxed Optimist)</option>
                             </>
                           ) : (config.tts_provider === 'openai' || (config.voice && config.voice.startsWith('openai'))) ? (
                             <>
-                              <option value="openai:alloy">Alloy (Neutral)</option>
-                              <option value="openai:shimmer">Shimmer (Female Clear)</option>
-                              <option value="openai:echo">Echo (Warm Male)</option>
-                              <option value="openai:onyx">Onyx (Deep Authority)</option>
+                              <option value="openai:alloy">Alloy (Neutral & Versatile)</option>
+                              <option value="openai:shimmer">Shimmer (Clear Warm Female)</option>
+                              <option value="openai:echo">Echo (Warm Well-rounded Male)</option>
+                              <option value="openai:onyx">Onyx (Deep Authority Male)</option>
+                              <option value="openai:nova">Nova (Energetic Friendly Female)</option>
+                              <option value="openai:fable">Fable (Expressive British Male)</option>
                             </>
                           ) : (config.tts_provider === 'deepgram' || (config.voice && config.voice.startsWith('deepgram'))) ? (
                             <>
-                              <option value="deepgram:aura-asteria-en">Asteria (US Female)</option>
-                              <option value="deepgram:aura-orion-en">Orion (US Male)</option>
+                              <option value="deepgram:aura-asteria-en">Asteria (US Female Conversational)</option>
+                              <option value="deepgram:aura-luna-en">Luna (US Female Soft & Patient)</option>
+                              <option value="deepgram:aura-stella-en">Stella (US Female Confident)</option>
+                              <option value="deepgram:aura-athena-en">Athena (UK Female Professional)</option>
+                              <option value="deepgram:aura-hera-en">Hera (US Female Warm)</option>
+                              <option value="deepgram:aura-orion-en">Orion (US Male Deep Executive)</option>
+                              <option value="deepgram:aura-arcas-en">Arcas (US Male Friendly & Energetic)</option>
+                              <option value="deepgram:aura-perseus-en">Perseus (US Male Authoritative)</option>
+                              <option value="deepgram:aura-angus-en">Angus (Irish Male Engaging)</option>
+                              <option value="deepgram:aura-orpheus-en">Orpheus (US Male Confident Narrator)</option>
+                              <option value="deepgram:aura-helios-en">Helios (UK Male Sophisticated)</option>
+                              <option value="deepgram:aura-zeus-en">Zeus (US Male Deep Resonant)</option>
                             </>
                           ) : (
                             <>
-                              <option value="sarvam:priya">Priya (Female)</option>
-                              <option value="sarvam:shubh">Shubh (Male)</option>
-                              <option value="sarvam:bulbul">Bulbul (Female Hindi/Eng)</option>
+                              <option value="sarvam:priya">Priya (Female Standard Hindi/English)</option>
+                              <option value="sarvam:neha">Neha (Female Young Conversational)</option>
+                              <option value="sarvam:shubh">Shubh (Male Calm Narrator)</option>
                               <option value="sarvam:arjun">Arjun (Deep Executive Male)</option>
+                              <option value="sarvam:bulbul">Bulbul (Female Melodic Hindi/English)</option>
+                              <option value="sarvam:rahul">Rahul (Male Friendly & Upbeat)</option>
+                              <option value="sarvam:amit">Amit (Male Authoritative Corporate)</option>
+                              <option value="sarvam:madhav">Madhav (Male Warm Storyteller)</option>
+                              <option value="sarvam:rohan">Rohan (Male Energetic Youthful)</option>
+                              <option value="sarvam:kavya">Kavya (Female Soft & Gentle)</option>
+                              <option value="sarvam:shreya">Shreya (Female Professional News)</option>
+                              <option value="sarvam:tarun">Tarun (Male Fast & Dynamic)</option>
+                              <option value="sarvam:raghav">Raghav (Male Clear Diction)</option>
+                              <option value="sarvam:advait">Advait (Male Modern Corporate)</option>
+                              <option value="sarvam:gargi">Gargi (Female Mature Wisdom)</option>
+                              <option value="sarvam:amelia">Amelia (Female International English)</option>
+                              <option value="sarvam:maya">Maya (Female Expressive Assistant)</option>
                             </>
                           )}
                         </select>

@@ -118,22 +118,51 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
     pace = float(speed if speed is not None else 1.1)
     
     # Sanitize voice ID per provider so dynamic stack switches never fail with 1008 policy violations
-    sarvam_voices = {"priya", "neha", "rahul", "amit", "madhav", "rohan", "kavya", "shreya", "tarun", "raghav", "advait", "gargi"}
+    sarvam_voices = {"priya", "neha", "rahul", "amit", "madhav", "rohan", "kavya", "shreya", "tarun", "raghav", "advait", "gargi", "shubh", "arjun", "bulbul", "amelia", "maya"}
     openai_voices = {"alloy", "echo", "fable", "onyx", "nova", "shimmer"}
     deepgram_voices = {"aura-asteria-en", "aura-luna-en", "aura-stella-en", "aura-athena-en", "aura-hera-en", "aura-orion-en", "aura-arcas-en", "aura-perseus-en", "aura-angus-en", "aura-orpheus-en", "aura-helios-en", "aura-zeus-en"}
     
     if provider == "elevenlabs":
-        # If voice belongs to another provider or is too short to be an ElevenLabs voice ID, fallback to Rachel
-        if voice in sarvam_voices or voice in openai_voices or voice in deepgram_voices or len(str(voice)) < 15:
+        el_map = {
+            "neha": "FGY2WhTYpPnrIDTdsKH5", # Laura (Indian Female Expressive)
+            "aarav": "IKne3meq5aSn9XLyUdCD", # Charlie (Deep Confident Male)
+            "priya": "EXAVITQu4vr4xnSDxMaL", # Sarah (Mature Reassuring Female)
+            "rahul": "ErXwobaYiN019PkySvjV", # Antoni (Well-rounded Male)
+            "rachel": "21m00Tcm4TlvDq8ikWAM",
+            "sarah": "EXAVITQu4vr4xnSDxMaL",
+            "laura": "FGY2WhTYpPnrIDTdsKH5",
+            "charlie": "IKne3meq5aSn9XLyUdCD",
+            "george": "JBFqnCBsd6RMkjVDRZzb",
+            "callum": "N2lVS1w4EtoT3dr4eOWO",
+            "river": "SAz9YHcvj6GT2YYXdXww",
+            "harry": "SOYHLrjzK2X1ezoPC6cr",
+            "liam": "TX3LPaxmHKxFdv7VOQHJ",
+            "alice": "Xb7hH8MSUJpSbSDYk0k2",
+            "matilda": "XrExE9yKIg1WjnnlVkGX",
+            "will": "bIHbv24MWmeRgasZH58o",
+            "jessica": "cgSgspJ2msm6clMCkdW9",
+            "eric": "cjVigY5qzO86Huf0OWal",
+            "bella": "hpp4J3VqNfWAUOO0d1Us",
+            "chris": "iP95p4xoKVk53GoZ742B",
+            "brian": "nPczCjzI2devNBz1zQrb",
+            "daniel": "onwK4e9ZLuTAKqWW03F9",
+            "lily": "pFZP5JQG7iQjIQuC4Bku",
+            "adam": "pNInz6obpgDQGcFmaJgB",
+            "bill": "pqHfZKP75CvOlQylNhV4",
+            "roger": "CwhRBWXzGAHq8TQ4Fs17"
+        }
+        if str(voice).lower() in el_map:
+            voice = el_map[str(voice).lower()]
+        elif voice in sarvam_voices or voice in openai_voices or voice in deepgram_voices or len(str(voice)) < 15:
             voice = "21m00Tcm4TlvDq8ikWAM"
     elif provider == "sarvam":
-        if voice not in sarvam_voices:
+        if str(voice).lower() not in sarvam_voices:
             voice = "priya"
     elif provider == "openai":
-        if voice not in openai_voices:
+        if str(voice).lower() not in openai_voices:
             voice = "alloy"
     elif provider == "deepgram":
-        if voice not in deepgram_voices and not str(voice).startswith("aura-"):
+        if str(voice).lower() not in deepgram_voices and not str(voice).lower().startswith("aura-"):
             voice = "aura-asteria-en"
 
     if provider == "sarvam":
