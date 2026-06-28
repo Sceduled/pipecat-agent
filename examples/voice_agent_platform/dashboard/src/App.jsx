@@ -791,7 +791,7 @@ function App() {
                           value={config.tts_provider || (config.voice && config.voice.includes(':') ? config.voice.split(':')[0] : 'sarvam')} 
                           onChange={e => {
                             const prov = e.target.value;
-                            const defVoice = prov === 'elevenlabs' ? 'elevenlabs:neha' : prov === 'openai' ? 'openai:alloy' : prov === 'deepgram' ? 'deepgram:aura-asteria-en' : 'sarvam:priya';
+                            const defVoice = prov === 'elevenlabs' ? 'elevenlabs:21m00Tcm4TlvDq8ikWAM' : prov === 'openai' ? 'openai:alloy' : prov === 'deepgram' ? 'deepgram:aura-asteria-en' : 'sarvam:priya';
                             const defModel = prov === 'sarvam' ? 'bulbul-v3' : prov === 'elevenlabs' ? 'turbo-v2.5' : prov === 'openai' ? 'tts-1' : 'aura';
                             const vId = defVoice.split(':')[1];
                             setConfig({ ...config, tts_provider: prov, tts_engine_model: defModel, voice: defVoice, tts_voice: vId });
@@ -842,10 +842,10 @@ function App() {
                         >
                           {(config.tts_provider === 'elevenlabs' || (config.voice && config.voice.startsWith('elevenlabs'))) ? (
                             <>
-                              <option value="elevenlabs:neha">Neha (Female Indian)</option>
-                              <option value="elevenlabs:George">George (British Male)</option>
-                              <option value="elevenlabs:Sarah">Sarah (US Professional)</option>
-                              <option value="elevenlabs:Charlie">Charlie (Australian Male)</option>
+                              <option value="elevenlabs:21m00Tcm4TlvDq8ikWAM">Rachel (Calm Female)</option>
+                              <option value="elevenlabs:EXAVITQu4vr4xnSDxMaL">Bella (Soft Female)</option>
+                              <option value="elevenlabs:ErXwobaYiN019PkySvjV">Antoni (Well-rounded Male)</option>
+                              <option value="elevenlabs:JBFqnCBsd6RMkjVDRZzb">George (British Male)</option>
                             </>
                           ) : (config.tts_provider === 'openai' || (config.voice && config.voice.startsWith('openai'))) ? (
                             <>

@@ -23,10 +23,25 @@ def create_stt_service(provider: str = "deepgram", model: str = "nova-2-conversa
             except Exception:
                 end_ms = 1000
 
+        # Map UI model strings to valid Deepgram WebSocket model strings
+        raw_model = str(model or "nova-2").lower()
+        if "conversational" in raw_model or "flux" in raw_model or raw_model == "nova-2":
+            dg_model = "nova-2"
+        elif "medical" in raw_model:
+            dg_model = "nova-2-medical"
+        elif "phonecall" in raw_model:
+            dg_model = "nova-2-phonecall"
+        elif "finance" in raw_model:
+            dg_model = "nova-2-finance"
+        elif "drivethru" in raw_model:
+            dg_model = "nova-2-drivethru"
+        else:
+            dg_model = "nova-2"
+
         return DeepgramSTTService(
             api_key=api_key,
             settings=DeepgramSTTService.Settings(
-                model=model or "nova-2-conversationalai",
+                model=dg_model,
                 language=language or "en",
                 endpointing=200,
                 utterance_end_ms=end_ms,
@@ -41,7 +56,7 @@ def create_stt_service(provider: str = "deepgram", model: str = "nova-2-conversa
         return SarvamSTTService(api_key=api_key, model=model or "saarika:v2")
     else:
         logger.warning(f"Unknown STT provider '{provider}', falling back to Deepgram")
-        return create_stt_service("deepgram", "nova-2-conversationalai", language, prewarmed)
+        return create_stt_service("deepgram", "nova-2", language, prewarmed)
 
 def create_llm_service(provider: str = "openai", model: str = "gpt-4o-mini", temperature: float = 0.7):
     provider = (provider or "openai").lower()
@@ -102,6 +117,25 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
         voice = parts[1]
     pace = float(speed if speed is not None else 1.1)
     
+    # Sanitize voice ID per provider so dynamic stack switches never fail with 1008 policy violations
+    sarvam_voices = {"priya", "neha", "rahul", "amit", "madhav", "rohan", "kavya", "shreya", "tarun", "raghav", "advait", "gargi"}
+    openai_voices = {"alloy", "echo", "fable", "onyx", "nova", "shimmer"}
+    deepgram_voices = {"aura-asteria-en", "aura-luna-en", "aura-stella-en", "aura-athena-en", "aura-hera-en", "aura-orion-en", "aura-arcas-en", "aura-perseus-en", "aura-angus-en", "aura-orpheus-en", "aura-helios-en", "aura-zeus-en"}
+    
+    if provider == "elevenlabs":
+        # If voice belongs to another provider or is too short to be an ElevenLabs voice ID, fallback to Rachel
+        if voice in sarvam_voices or voice in openai_voices or voice in deepgram_voices or len(str(voice)) < 15:
+            voice = "21m00Tcm4TlvDq8ikWAM"
+    elif provider == "sarvam":
+        if voice not in sarvam_voices:
+            voice = "priya"
+    elif provider == "openai":
+        if voice not in openai_voices:
+            voice = "alloy"
+    elif provider == "deepgram":
+        if voice not in deepgram_voices and not str(voice).startswith("aura-"):
+            voice = "aura-asteria-en"
+
     if provider == "sarvam":
         api_key = os.environ.get("SARVAM_API_KEY", "")
         if not api_key:
