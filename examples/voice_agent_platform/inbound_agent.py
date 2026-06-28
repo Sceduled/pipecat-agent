@@ -135,31 +135,12 @@ async def run_inbound(
     company_name: str,
     knowledge_base: str,
     niche: str,
-) -> None:
-    """Build and run the inbound call pipeline.
-
-    Args:
-        transport: The FastAPIWebsocketTransport connected to Vobiz.
-        deepgram_api_key: Deepgram API key for STT.
-        openai_api_key: OpenAI API key for LLM.
-        sarvam_api_key: Sarvam API key for TTS.
-        system_prompt: DB-configured system prompt.
-        voice: DB-configured TTS voice.
-    """
-
-    # --- STT ---
-    # nova-2-phonecall: tuned for G.711 µ-law telephone audio.
-    # endpointing=300ms: Deepgram fires final transcript 300ms after speech stops
-    # (default never fires on phone lines because background noise prevents silence).
-    stt = DeepgramSTTService(
-        api_key=deepgram_api_key,
-        settings=DeepgramSTTService.Settings(
-            model="nova-2-phonecall",
-            endpointing=200,
-            utterance_end_ms=1000,
-            interim_results=True,
-        ),
-    )
+    agent_config: dict = None,
+    lead_context: dict = None,
+) -> list:
+    """Build and run the inbound call pipeline."""
+    agent_config = agent_config or {}
+    lead_context = lead_context or {}
 
     system_prompt_final = (
         f"You are representing: {company_name}\n\n"
@@ -168,22 +149,22 @@ async def run_inbound(
         f"{_BASE_RULES}"
     )
 
-    # --- LLM ---
-    llm = OpenAILLMService(
-        api_key=openai_api_key,
-        settings=OpenAILLMService.Settings(
-            model="gpt-4o-mini",
-            system_instruction=system_prompt_final,
-        ),
-    )
+    # --- Dynamic Services via Service Factory ---
+    from service_factory import create_stt_service, create_llm_service, create_tts_service
+    stt_provider = agent_config.get("stt_provider", "deepgram")
+    stt_model = agent_config.get("stt_model", "nova-2-phonecall")
+    stt = create_stt_service(stt_provider, stt_model, prewarmed=False)
 
-    # --- TTS ---
-    # WebSocket streaming: first audio arrives in ~0.4s (vs 3+ s for HTTP).
-    # min_buffer_size=80: Sarvam accumulates 80 chars before starting synthesis,
-    # so each short sentence is ONE synthesis job → smooth continuous audio.
-    # (With min_buffer_size=25, every 25-char burst is separate → word-by-word.)
-    from tts_helper import get_tts_service
-    tts = get_tts_service(voice)
+    llm_provider = agent_config.get("llm_provider", "openai")
+    llm_model = agent_config.get("llm_model", "gpt-4o-mini")
+    llm_temp = agent_config.get("llm_temperature", 0.7)
+    llm = create_llm_service(llm_provider, llm_model, llm_temp)
+    llm._settings.system_instruction = system_prompt_final
+
+    tts_provider = agent_config.get("tts_provider", "sarvam")
+    tts_voice = agent_config.get("tts_voice", voice)
+    tts_speed = agent_config.get("tts_speed", 1.1)
+    tts = create_tts_service(tts_provider, tts_voice, tts_speed, prewarmed=False)
 
     # --- Context + aggregator ---
     from tools import INBOUND_TOOLS, transfer_to_agent
@@ -231,7 +212,14 @@ async def run_inbound(
     async def on_client_connected(_transport, _client):
         logger.info("Inbound call connected — waiting for phone line to settle")
         company = company_name if company_name else "our company"
-        opener = f"Hi, thanks for calling {company}. How can I help you today?"
+        from prompt_engine import render_template
+        raw_opener = agent_config.get("opener_text") or f"Hi, thanks for calling {{company_name}}. How can I help you today?"
+        render_ctx = {
+            "company_name": company,
+            "name": agent_config.get("name", "AI Assistant"),
+            "niche": niche
+        }
+        opener = render_template(raw_opener, render_ctx)
         # Add greeting to context immediately (before any await) so any user
         # speech during the startup window sees a prior assistant turn — the LLM
         # won't re-introduce even if the opener is interrupted.

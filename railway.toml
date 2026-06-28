@@ -5,7 +5,7 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 # Railway auto-injects $PORT — uvicorn reads it at startup
-startCommand = "sh -c 'uv run uvicorn main:app --app-dir /app/examples/real_estate_agent --host 0.0.0.0 --port ${PORT:-8080}'"
+startCommand = "sh -c 'uv run uvicorn main:app --app-dir /app/examples/voice_agent_platform --host 0.0.0.0 --port ${PORT:-8080}'"
 
 # Keep one instance always warm (cold starts kill voice latency)
 numReplicas = 1

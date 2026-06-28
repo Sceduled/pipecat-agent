@@ -25,11 +25,11 @@ RUN uv sync --no-dev \
     --extra websocket \
     && uv pip install "uvicorn[standard]" aiohttp python-dotenv sqlalchemy psycopg2-binary
 
-# Copy the real estate agent
-COPY examples/real_estate_agent/ ./examples/real_estate_agent/
+# Copy the voice agent platform
+COPY examples/voice_agent_platform/ ./examples/voice_agent_platform/
 
 ENV PORT=8080
 EXPOSE 8080
 
-WORKDIR /app/examples/real_estate_agent
+WORKDIR /app/examples/voice_agent_platform
 CMD ["uv", "run", "python", "main.py"]

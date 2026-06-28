@@ -194,22 +194,16 @@ async def run_outbound(
     company_name: str,
     knowledge_base: str,
     niche: str,
-) -> None:
-    """Build and run the outbound call pipeline for a given session.
-
-    Args:
-        transport: The FastAPIWebsocketTransport connected to Vobiz.
-        session_token: Token identifying the pre-stored lead context.
-        deepgram_api_key: Deepgram API key.
-        openai_api_key: OpenAI API key for LLM.
-        sarvam_api_key: Sarvam API key.
-        system_prompt: DB-configured system prompt.
-        voice: DB-configured TTS voice.
-    """
-    lead_context = pending_outbound_sessions.pop(session_token, {})
+    agent_config: dict = None,
+    lead_context: dict = None,
+) -> list:
+    """Build and run the outbound call pipeline for a given session."""
+    if lead_context is None:
+        lead_context = pending_outbound_sessions.pop(session_token, {})
     if not lead_context:
         logger.warning(f"No session found for token {session_token}. Using empty context.")
 
+    agent_config = agent_config or lead_context.get("agent_config", {})
     call_type = lead_context.get("call_type", "follow_up")
     
     outbound_directive = (
@@ -234,29 +228,22 @@ async def run_outbound(
         f"{_BASE_RULES}"
     )
 
-    # --- STT ---
-    stt = lead_context.pop("prewarmed_stt", None) or DeepgramSTTService(
-        api_key=deepgram_api_key,
-        settings=DeepgramSTTService.Settings(
-            model="nova-2-phonecall",
-            endpointing=200,
-            utterance_end_ms=1000,
-            interim_results=True,
-        ),
-    )
+    # --- Dynamic Services via Service Factory ---
+    from service_factory import create_stt_service, create_llm_service, create_tts_service
+    stt_provider = agent_config.get("stt_provider", "deepgram")
+    stt_model = agent_config.get("stt_model", "nova-2-phonecall")
+    stt = lead_context.pop("prewarmed_stt", None) or create_stt_service(stt_provider, stt_model, prewarmed=False)
 
-    # --- LLM ---
-    llm = OpenAILLMService(
-        api_key=openai_api_key,
-        settings=OpenAILLMService.Settings(
-            model="gpt-4o-mini",
-            system_instruction=system_prompt_final,
-        ),
-    )
+    llm_provider = agent_config.get("llm_provider", "openai")
+    llm_model = agent_config.get("llm_model", "gpt-4o-mini")
+    llm_temp = agent_config.get("llm_temperature", 0.7)
+    llm = create_llm_service(llm_provider, llm_model, llm_temp)
+    llm._settings.system_instruction = system_prompt_final
 
-    # --- TTS ---
-    from tts_helper import get_tts_service
-    tts = lead_context.pop("prewarmed_tts", None) or get_tts_service(voice)
+    tts_provider = agent_config.get("tts_provider", "sarvam")
+    tts_voice = agent_config.get("tts_voice", voice)
+    tts_speed = agent_config.get("tts_speed", 1.1)
+    tts = lead_context.pop("prewarmed_tts", None) or create_tts_service(tts_provider, tts_voice, tts_speed, prewarmed=False)
 
     # --- Context + aggregator ---
     from tools import OUTBOUND_TOOLS, update_call_outcome
@@ -303,11 +290,19 @@ async def run_outbound(
         logger.info(f"Outbound call connected | call_type={call_type} | lead={lead_context.get('name')}")
         lead_name = lead_context.get("name", "")
         company = company_name if company_name else "our company"
-        opener = lead_context.pop("opener_text", None) or (
-            f"Hi, is this {lead_name}? I'm calling from {company}."
+        from prompt_engine import render_template
+        raw_opener = agent_config.get("opener_text") or lead_context.pop("opener_text", None) or (
+            f"Hi, is this {{lead_name}}? I'm calling from {{company_name}}."
             if lead_name
-            else f"Hi, I'm calling from {company}. Am I speaking with the right person?"
+            else f"Hi, I'm calling from {{company_name}}. Am I speaking with the right person?"
         )
+        render_ctx = {
+            "lead_name": lead_name,
+            "company_name": company,
+            "name": agent_config.get("name", "AI Assistant"),
+            "niche": niche
+        }
+        opener = render_template(raw_opener, render_ctx)
         context.add_message({"role": "assistant", "content": opener})
         lead_context.pop("opener_pcm", None)
         lead_context.pop("opener_text", None)

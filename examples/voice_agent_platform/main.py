@@ -182,16 +182,19 @@ async def ws_inbound(websocket: WebSocket, agent_id: str = Query("")):
     
     try:
         transport = _make_transport(websocket)
+        agent_config = get_agent_config_dict(agent)
         messages = await run_inbound(
             transport=transport,
             deepgram_api_key=DEEPGRAM_API_KEY,
             openai_api_key=OPENAI_API_KEY,
             sarvam_api_key=SARVAM_API_KEY,
-            system_prompt=agent.system_prompt,
-            voice=agent.voice,
-            company_name=agent.company_name,
-            knowledge_base=agent.knowledge_base,
-            niche=agent.niche,
+            system_prompt=agent_config["system_prompt"],
+            voice=agent_config["tts_voice"],
+            company_name=agent_config["company_name"],
+            knowledge_base=agent_config["knowledge_base"],
+            niche=agent_config["niche"],
+            agent_config=agent_config,
+            lead_context={"name": "Inbound Caller", "phone": "Inbound Caller"}
         )
         
         # Save transcript
@@ -258,11 +261,9 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
 
     try:
         transport = _make_transport(websocket)
-        override_system_prompt = context.get("system_prompt")
-        override_voice = context.get("voice")
-
-        system_prompt = override_system_prompt if override_system_prompt else agent.system_prompt
-        voice = override_voice if override_voice else agent.voice
+        agent_config = context.get("agent_config") or get_agent_config_dict(agent, {"system_prompt": context.get("system_prompt"), "voice": context.get("voice")})
+        system_prompt = agent_config["system_prompt"]
+        voice = agent_config["tts_voice"]
 
         messages = await run_outbound(
             transport=transport,
@@ -272,9 +273,11 @@ async def ws_outbound(websocket: WebSocket, session: str = Query(...)):
             sarvam_api_key=SARVAM_API_KEY,
             system_prompt=system_prompt,
             voice=voice,
-            company_name=agent.company_name,
-            knowledge_base=agent.knowledge_base,
-            niche=agent.niche,
+            company_name=agent_config["company_name"],
+            knowledge_base=agent_config["knowledge_base"],
+            niche=agent_config["niche"],
+            agent_config=agent_config,
+            lead_context=context
         )
 
         if messages:
@@ -341,11 +344,9 @@ async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(..
 
     try:
         transport = _make_transport(websocket)
-        override_system_prompt = context.get("system_prompt")
-        override_voice = context.get("voice")
-
-        system_prompt = override_system_prompt if override_system_prompt else agent.system_prompt
-        voice = override_voice if override_voice else agent.voice
+        agent_config = context.get("agent_config") or get_agent_config_dict(agent, {"system_prompt": context.get("system_prompt"), "voice": context.get("voice")})
+        system_prompt = agent_config["system_prompt"]
+        voice = agent_config["tts_voice"]
 
         messages = await run_multilingual_outbound(
             transport=transport,
@@ -355,9 +356,11 @@ async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(..
             sarvam_api_key=SARVAM_API_KEY,
             system_prompt=system_prompt,
             voice=voice,
-            company_name=agent.company_name,
-            knowledge_base=agent.knowledge_base,
-            niche=agent.niche,
+            company_name=agent_config["company_name"],
+            knowledge_base=agent_config["knowledge_base"],
+            niche=agent_config["niche"],
+            agent_config=agent_config,
+            lead_context=context
         )
 
         if messages:
@@ -381,6 +384,26 @@ async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(..
 # Outbound dial trigger
 # ---------------------------------------------------------------------------
 
+def get_agent_config_dict(agent_row, body=None):
+    body = body or {}
+    override_voice = body.get("voice")
+    override_prompt = body.get("system_prompt")
+    return {
+        "name": agent_row.name if agent_row else "AI Assistant",
+        "company_name": agent_row.company_name if agent_row else "",
+        "niche": agent_row.niche if agent_row else "custom",
+        "knowledge_base": agent_row.knowledge_base if agent_row else "",
+        "system_prompt": override_prompt or (agent_row.system_prompt if agent_row else ""),
+        "stt_provider": getattr(agent_row, "stt_provider", "deepgram") or "deepgram",
+        "stt_model": getattr(agent_row, "stt_model", "nova-2-phonecall") or "nova-2-phonecall",
+        "llm_provider": getattr(agent_row, "llm_provider", "openai") or "openai",
+        "llm_model": getattr(agent_row, "llm_model", "gpt-4o-mini") or "gpt-4o-mini",
+        "llm_temperature": getattr(agent_row, "llm_temperature", 0.7) if getattr(agent_row, "llm_temperature", None) is not None else 0.7,
+        "tts_provider": getattr(agent_row, "tts_provider", "sarvam") or "sarvam",
+        "tts_voice": override_voice or getattr(agent_row, "tts_voice", getattr(agent_row, "voice", "priya")) or "priya",
+        "tts_speed": getattr(agent_row, "tts_speed", 1.1) if getattr(agent_row, "tts_speed", None) is not None else 1.1,
+        "opener_text": getattr(agent_row, "opener_text", "Hi {{lead_name}}, I'm calling from {{company_name}}. Do you have a moment to chat?") or "Hi {{lead_name}}, I'm calling from {{company_name}}. Do you have a moment to chat?"
+    }
 
 @app.post("/dial")
 async def dial(request: Request):
@@ -397,6 +420,10 @@ async def dial(request: Request):
     if not to_number:
         return {"error": "'to' field is required"}
 
+    from database import get_agent as _get_agent
+    agent_row = _get_agent(agent_id)
+    agent_config = get_agent_config_dict(agent_row, body)
+
     lead_context = {
         "name": body.get("name", ""),
         "call_type": body.get("call_type", "follow_up"),
@@ -407,7 +434,8 @@ async def dial(request: Request):
         "agent_id": agent_id,
         "phone": to_number,
         "voice": body.get("voice"),
-        "system_prompt": body.get("system_prompt")
+        "system_prompt": body.get("system_prompt"),
+        "agent_config": agent_config
     }
 
     from outbound_agent import pending_outbound_sessions
@@ -415,22 +443,9 @@ async def dial(request: Request):
     pending_outbound_sessions[session_token] = lead_context
 
     # Bolna pattern: pre-warm streaming WebSockets during ring phase (~5-10s)
-    override_voice = body.get("voice")
-    from database import get_agent as _get_agent
-    agent_row = _get_agent(agent_id)
-    voice_for_synth = override_voice or (agent_row.voice if agent_row else "shubh")
-    from tts_helper import get_tts_service
-    prewarmed_tts = get_tts_service(voice_for_synth)
-    from prewarmed_services import PrewarmedDeepgramSTTService as DeepgramSTTService
-    prewarmed_stt = DeepgramSTTService(
-        api_key=DEEPGRAM_API_KEY,
-        settings=DeepgramSTTService.Settings(
-            model="nova-2-phonecall",
-            endpointing=200,
-            utterance_end_ms=1000,
-            interim_results=True,
-        ),
-    )
+    from service_factory import create_tts_service, create_stt_service
+    prewarmed_tts = create_tts_service(agent_config["tts_provider"], agent_config["tts_voice"], agent_config["tts_speed"], prewarmed=True)
+    prewarmed_stt = create_stt_service(agent_config["stt_provider"], agent_config["stt_model"], prewarmed=True)
     lead_context["prewarmed_tts"] = prewarmed_tts
     lead_context["prewarmed_stt"] = prewarmed_stt
 
@@ -471,6 +486,10 @@ async def dial_multilingual(request: Request):
     if not to_number:
         return {"error": "'to' field is required"}
 
+    from database import get_agent as _get_agent
+    agent_row = _get_agent(agent_id)
+    agent_config = get_agent_config_dict(agent_row, body)
+
     lead_context = {
         "name": body.get("name", ""),
         "call_type": body.get("call_type", "follow_up"),
@@ -481,7 +500,8 @@ async def dial_multilingual(request: Request):
         "agent_id": agent_id,
         "phone": to_number,
         "voice": body.get("voice"),
-        "system_prompt": body.get("system_prompt")
+        "system_prompt": body.get("system_prompt"),
+        "agent_config": agent_config
     }
 
     from multilingual_outbound_agent import pending_multilingual_sessions
@@ -489,22 +509,9 @@ async def dial_multilingual(request: Request):
     pending_multilingual_sessions[session_token] = lead_context
 
     # Bolna pattern: pre-warm streaming WebSockets during ring phase (~5-10s)
-    override_voice = body.get("voice")
-    from database import get_agent as _get_agent
-    agent_row = _get_agent(agent_id)
-    voice_for_synth = override_voice or (agent_row.voice if agent_row else "priya")
-    from tts_helper import get_tts_service
-    prewarmed_tts = get_tts_service(voice_for_synth)
-    from prewarmed_services import PrewarmedDeepgramSTTService as DeepgramSTTService
-    prewarmed_stt = DeepgramSTTService(
-        api_key=DEEPGRAM_API_KEY,
-        settings=DeepgramSTTService.Settings(
-            model="nova-2-phonecall",
-            endpointing=200,
-            utterance_end_ms=1000,
-            interim_results=True,
-        ),
-    )
+    from service_factory import create_tts_service, create_stt_service
+    prewarmed_tts = create_tts_service(agent_config["tts_provider"], agent_config["tts_voice"], agent_config["tts_speed"], prewarmed=True)
+    prewarmed_stt = create_stt_service(agent_config["stt_provider"], agent_config["stt_model"], prewarmed=True)
     lead_context["prewarmed_tts"] = prewarmed_tts
     lead_context["prewarmed_stt"] = prewarmed_stt
 
@@ -545,8 +552,17 @@ class AgentCreate(BaseModel):
     niche: str
     agent_type: str
     system_prompt: str
-    voice: str
+    voice: str = "priya"
     knowledge_base: str = ""
+    stt_provider: str = "deepgram"
+    stt_model: str = "nova-2-phonecall"
+    llm_provider: str = "openai"
+    llm_model: str = "gpt-4o-mini"
+    llm_temperature: float = 0.7
+    tts_provider: str = "sarvam"
+    tts_voice: str = "priya"
+    tts_speed: float = 1.1
+    opener_text: str = "Hi {{lead_name}}, I'm calling from {{company_name}}. Do you have a moment to chat?"
 
 class AgentUpdate(BaseModel):
     name: str
@@ -554,8 +570,17 @@ class AgentUpdate(BaseModel):
     niche: str
     agent_type: str
     system_prompt: str
-    voice: str
+    voice: str = "priya"
     knowledge_base: str = ""
+    stt_provider: str = "deepgram"
+    stt_model: str = "nova-2-phonecall"
+    llm_provider: str = "openai"
+    llm_model: str = "gpt-4o-mini"
+    llm_temperature: float = 0.7
+    tts_provider: str = "sarvam"
+    tts_voice: str = "priya"
+    tts_speed: float = 1.1
+    opener_text: str = "Hi {{lead_name}}, I'm calling from {{company_name}}. Do you have a moment to chat?"
 
 class PhoneCreate(BaseModel):
     phone_number: str
@@ -640,8 +665,17 @@ async def create_agent(agent: AgentCreate, db: Session = Depends(get_db)):
         niche=agent.niche,
         agent_type=agent.agent_type,
         system_prompt=agent.system_prompt,
-        voice=agent.voice,
-        knowledge_base=agent.knowledge_base
+        voice=agent.tts_voice or agent.voice or "priya",
+        knowledge_base=agent.knowledge_base,
+        stt_provider=agent.stt_provider,
+        stt_model=agent.stt_model,
+        llm_provider=agent.llm_provider,
+        llm_model=agent.llm_model,
+        llm_temperature=agent.llm_temperature,
+        tts_provider=agent.tts_provider,
+        tts_voice=agent.tts_voice or agent.voice or "priya",
+        tts_speed=agent.tts_speed,
+        opener_text=agent.opener_text
     )
     db.add(db_agent)
     db.commit()
@@ -659,8 +693,17 @@ async def update_agent(agent_id: str, agent: AgentUpdate, db: Session = Depends(
     db_agent.niche = agent.niche
     db_agent.agent_type = agent.agent_type
     db_agent.system_prompt = agent.system_prompt
-    db_agent.voice = agent.voice
+    db_agent.voice = agent.tts_voice or agent.voice or "priya"
     db_agent.knowledge_base = agent.knowledge_base
+    db_agent.stt_provider = agent.stt_provider
+    db_agent.stt_model = agent.stt_model
+    db_agent.llm_provider = agent.llm_provider
+    db_agent.llm_model = agent.llm_model
+    db_agent.llm_temperature = agent.llm_temperature
+    db_agent.tts_provider = agent.tts_provider
+    db_agent.tts_voice = agent.tts_voice or agent.voice or "priya"
+    db_agent.tts_speed = agent.tts_speed
+    db_agent.opener_text = agent.opener_text
     db.commit()
     db.refresh(db_agent)
     return db_agent
