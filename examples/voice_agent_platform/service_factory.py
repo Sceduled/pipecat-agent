@@ -38,15 +38,22 @@ def create_stt_service(provider: str = "deepgram", model: str = "nova-2-conversa
         else:
             dg_model = "nova-2"
 
+        clean_lang = str(language or "en").strip().split("-")[0] if language else "en"
+        settings_kwargs = {
+            "model": dg_model,
+            "language": clean_lang,
+            "endpointing": 200,
+            "utterance_end_ms": end_ms,
+            "interim_results": True,
+        }
+        if keywords and str(keywords).strip():
+            kw_clean = ", ".join([k.strip() for k in str(keywords).split(",") if k.strip()])
+            if kw_clean:
+                settings_kwargs["keywords"] = kw_clean
+
         return DeepgramSTTService(
             api_key=api_key,
-            settings=DeepgramSTTService.Settings(
-                model=dg_model,
-                language=language or "en",
-                endpointing=200,
-                utterance_end_ms=end_ms,
-                interim_results=True,
-            ),
+            settings=DeepgramSTTService.Settings(**settings_kwargs),
         )
     elif provider == "sarvam":
         from pipecat.services.sarvam.stt import SarvamSTTService
