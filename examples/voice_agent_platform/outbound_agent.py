@@ -231,8 +231,11 @@ async def run_outbound(
     # --- Dynamic Services via Service Factory ---
     from service_factory import create_stt_service, create_llm_service, create_tts_service
     stt_provider = agent_config.get("stt_provider", "deepgram")
-    stt_model = agent_config.get("stt_model", "nova-2-phonecall")
-    stt = lead_context.pop("prewarmed_stt", None) or create_stt_service(stt_provider, stt_model, prewarmed=False)
+    stt_model = agent_config.get("stt_model", "nova-2-conversationalai")
+    stt_keywords = agent_config.get("stt_keywords", "")
+    stt_timeout = agent_config.get("stt_timeout", "500ms")
+    stt_eager = agent_config.get("stt_eager", "enabled")
+    stt = lead_context.pop("prewarmed_stt", None) or create_stt_service(stt_provider, stt_model, prewarmed=False, keywords=stt_keywords, timeout=stt_timeout, eager=stt_eager)
 
     llm_provider = agent_config.get("llm_provider", "openai")
     llm_model = agent_config.get("llm_model", "gpt-4o-mini")
@@ -241,9 +244,10 @@ async def run_outbound(
     llm._settings.system_instruction = system_prompt_final
 
     tts_provider = agent_config.get("tts_provider", "sarvam")
+    tts_engine_model = agent_config.get("tts_engine_model", "bulbul-v3")
     tts_voice = agent_config.get("tts_voice", voice)
     tts_speed = agent_config.get("tts_speed", 1.1)
-    tts = lead_context.pop("prewarmed_tts", None) or create_tts_service(tts_provider, tts_voice, tts_speed, prewarmed=False)
+    tts = lead_context.pop("prewarmed_tts", None) or create_tts_service(tts_provider, tts_voice, tts_speed, prewarmed=False, engine_model=tts_engine_model)
 
     # --- Context + aggregator ---
     from tools import OUTBOUND_TOOLS, update_call_outcome

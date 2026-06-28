@@ -30,9 +30,8 @@ from pipecat.processors.aggregators.llm_response_universal import (
 from pipecat.turns.user_stop.speech_timeout_user_turn_stop_strategy import (
     SpeechTimeoutUserTurnStopStrategy,
 )
-from pipecat.turns.user_mute import AlwaysUserMuteStrategy, FunctionCallUserMuteStrategy
 from pipecat.turns.user_turn_strategies import UserTurnStrategies
-from prewarmed_services import PrewarmedDeepgramSTTService as DeepgramSTTService
+from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketTransport
@@ -75,13 +74,13 @@ PHONE CALL SPEAKING RULES:
 - No bullet points, no numbered lists, no markdown, no asterisks, no emojis. Spoken words only.
 - If lead speaks Hindi, reply in a warm Hindi-English mix.
 - Never ask more than one question at a time.
-- TOOL CALLING SPEED: When calling tools like book_site_visit or calculate_emi, NEVER say "Just a moment", "Hold on", or "Let me check". Instead, call the tool AND immediately speak the confirmation in the exact same turn! For example, when calling book_site_visit, call the tool and say "Ji zaroor, maine aapka site visit book kar diya hai kal subah 10 baje ke liye!" immediately.
+- Before calling search_properties, calculate_emi, or book_site_visit, say one short warm sentence first so there is no silence. Example: "Ji zaroor, main check karti hoon." or "Haan, main abhi calculate karti hoon." Then immediately make the tool call.
 - If they are busy, ask for a good callback time, then call update_call_outcome silently.
 - Call update_call_outcome ONLY at the very end of the conversation, not before.
 - After you have said your farewell and update_call_outcome is done, call end_call silently to hang up. Never mention that you are ending the call.
 
 TTS PRONUNCIATION RULES — follow these exactly for natural phone audio:
-- Apartment sizes: say conversational real estate terms like "3 BHK apartment" or "2 BHK". Never "2BHK", "3 BHK", or "BHK" alone.
+- Apartment sizes: always say "two B H K" or "three B H K". Never "2BHK", "3 BHK", or "BHK" alone.
 - Money in lakhs: say "85 lakhs" or "90 lakhs". Never "85L", "85 L", or any short form.
 - Money in crores: say "1.5 crores" or "2 crores". Never "1.5 Cr", "2 Cr", or any short form.
 - Area: always say "square feet". Never "sq ft", "sqft", or "sq.ft".
@@ -89,6 +88,7 @@ TTS PRONUNCIATION RULES — follow these exactly for natural phone audio:
 - Large numbers: say "65 thousand" not "65,000". Say "1 lakh 20 thousand" not "1,20,000".
 - Percentages: say "8.5 percent" not "8.5%".
 - Dates: say "the 25th of June" or "Saturday the 25th". Never read out a date like "2026-06-25".
+- Never use em-dashes, en-dashes, or hyphens between clauses. Use a comma or period instead.
 - Never use ellipsis. End every sentence cleanly.
 - No brackets or parentheses anywhere in your response."""
 
@@ -197,25 +197,31 @@ async def run_multilingual_outbound(
     company_name: str,
     knowledge_base: str,
     niche: str,
-    agent_config: dict = None,
-    lead_context: dict = None,
-) -> list:
-    """Build and run the outbound call pipeline for a given session."""
-    if lead_context is None:
-        lead_context = pending_multilingual_sessions.pop(session_token, {})
+) -> None:
+    """Build and run the outbound call pipeline for a given session.
+
+    Args:
+        transport: The FastAPIWebsocketTransport connected to Vobiz.
+        session_token: Token identifying the pre-stored lead context.
+        deepgram_api_key: Deepgram API key.
+        openai_api_key: OpenAI API key for LLM.
+        sarvam_api_key: Sarvam API key.
+        system_prompt: DB-configured system prompt.
+        voice: DB-configured TTS voice.
+    """
+    lead_context = pending_multilingual_sessions.pop(session_token, {})
     if not lead_context:
         logger.warning(f"No session found for token {session_token}. Using empty context.")
 
-    agent_config = agent_config or lead_context.get("agent_config", {})
     call_type = lead_context.get("call_type", "follow_up")
 
     outbound_directive = (
-        f"CRITICAL: THIS IS AN OUTBOUND CALL IN HINDI/HINGLISH/ENGLISH MULTILINGUAL MODE.\n"
+        f"CRITICAL: THIS IS AN OUTBOUND CALL.\n"
         f"You are calling {lead_context.get('name', 'a customer')} regarding their interest in {lead_context.get('interest', 'property')}.\n"
         f"THE SYSTEM HAS ALREADY SPOKEN YOUR OPENING GREETING TO THE USER ON YOUR BEHALF.\n"
         f"DO NOT introduce yourself. DO NOT say 'Namaste' or repeat the company name.\n"
-        f"Assume the user just heard your opening greeting.\n"
-        f"Your FIRST response MUST simply react to whatever the user just said."
+        f"Assume the lead just heard you ask if they are free to talk.\n"
+        f"Your FIRST response MUST simply react to whatever the lead just said (e.g., 'Ji bilkul, main bata deti hoon...')."
     )
 
     # We combine the UI-configured persona with the dynamic lead context
@@ -231,26 +237,29 @@ async def run_multilingual_outbound(
         f"{_BASE_RULES}"
     )
 
-    # --- Dynamic Services via Service Factory ---
-    from service_factory import create_stt_service, create_llm_service, create_tts_service
-    stt_provider = agent_config.get("stt_provider", "deepgram")
-    stt_model = agent_config.get("stt_model", "nova-2-conversationalai")
-    stt_keywords = agent_config.get("stt_keywords", "")
-    stt_timeout = agent_config.get("stt_timeout", "500ms")
-    stt_eager = agent_config.get("stt_eager", "enabled")
-    stt = lead_context.pop("prewarmed_stt", None) or create_stt_service(stt_provider, stt_model, prewarmed=False, keywords=stt_keywords, timeout=stt_timeout, eager=stt_eager)
+    # --- STT ---
+    stt = DeepgramSTTService(
+        api_key=deepgram_api_key,
+        settings=DeepgramSTTService.Settings(
+            model="nova-2-phonecall",
+            endpointing=300,
+            utterance_end_ms=1000,
+            interim_results=True,
+        ),
+    )
 
-    llm_provider = agent_config.get("llm_provider", "openai")
-    llm_model = agent_config.get("llm_model", "gpt-4o-mini")
-    llm_temp = agent_config.get("llm_temperature", 0.7)
-    llm = create_llm_service(llm_provider, llm_model, llm_temp)
-    llm._settings.system_instruction = system_prompt_final
+    # --- LLM ---
+    llm = OpenAILLMService(
+        api_key=openai_api_key,
+        settings=OpenAILLMService.Settings(
+            model="gpt-4o-mini",
+            system_instruction=system_prompt_final,
+        ),
+    )
 
-    tts_provider = agent_config.get("tts_provider", "sarvam")
-    tts_engine_model = agent_config.get("tts_engine_model", "bulbul-v3")
-    tts_voice = agent_config.get("tts_voice", voice)
-    tts_speed = agent_config.get("tts_speed", 1.1)
-    tts = lead_context.pop("prewarmed_tts", None) or create_tts_service(tts_provider, tts_voice, tts_speed, prewarmed=False, engine_model=tts_engine_model)
+    # --- TTS ---
+    from tts_helper import get_tts_service
+    tts = get_tts_service(voice)
 
     # --- Context + aggregator ---
     from tools import OUTBOUND_TOOLS, update_call_outcome
@@ -259,10 +268,6 @@ async def run_multilingual_outbound(
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(
-            user_mute_strategies=[
-                AlwaysUserMuteStrategy(),
-                FunctionCallUserMuteStrategy(),
-            ],
             vad_analyzer=SileroVADAnalyzer(
                 params=VADParams(min_volume=0.15, confidence=0.7, stop_secs=0.3)
             ),
@@ -297,35 +302,71 @@ async def run_multilingual_outbound(
         logger.info(f"Outbound call connected | call_type={call_type} | lead={lead_context.get('name')}")
         lead_name = lead_context.get("name", "")
         company = company_name if company_name else "our company"
-        from prompt_engine import render_template
-        raw_opener = agent_config.get("opener_text") or lead_context.pop("opener_text", None) or (
-            f"Namaste, kya main {{lead_name}} se baat kar rahi hoon? Main {{company_name}} se Priya bol rahi hoon."
+        opener = lead_context.pop("opener_text", None) or (
+            f"Namaste, kya main {lead_name} se baat kar rahi hoon? Main {company} se Priya bol rahi hoon."
             if lead_name
-            else f"Namaste, main {{company_name}} se Priya bol rahi hoon. Kya aap mujhse baat kar sakte hain?"
+            else f"Namaste, main {company} se Priya bol rahi hoon. Kya aap mujhse baat kar sakte hain?"
         )
-        render_ctx = {
-            "lead_name": lead_name,
-            "company_name": company,
-            "name": agent_config.get("name", "AI Assistant"),
-            "niche": niche
-        }
-        opener = render_template(raw_opener, render_ctx)
         context.add_message({"role": "assistant", "content": opener})
-        lead_context.pop("opener_pcm", None)
-        lead_context.pop("opener_text", None)
+        opener_pcm = lead_context.pop("opener_pcm", None)
 
         from websockets.protocol import State as WsState
 
-        # Bolna pattern: wait briefly for pre-warmed TTS WebSocket to be open, then speak immediately
-        deadline = asyncio.get_event_loop().time() + 3.0
-        while asyncio.get_event_loop().time() < deadline:
-            ws = getattr(tts, "_websocket", None)
-            if ws is not None and ws.state == WsState.OPEN:
-                break
-            await asyncio.sleep(0.02)
+        if opener_pcm:
+            logger.info(f"Sending ML pre-synth opener ({len(opener_pcm)} bytes) directly to Vobiz WS")
+            import base64 as _b64
+            import json as _json
+            from ring_phase_synth import pcm_to_chunks
+            from pipecat.audio.utils import pcm_to_ulaw, create_stream_resampler
 
-        logger.info(f"Speaking opener via live WebSocket TTS (100% voice parity): {opener}")
-        await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
+            resampler = create_stream_resampler()
+            first_chunk = True
+            for chunk in pcm_to_chunks(opener_pcm, sample_rate=24000):
+                ulaw_audio = await pcm_to_ulaw(chunk, 24000, 8000, resampler)
+                if ulaw_audio:
+                    if first_chunk:
+                        logger.info("First ML audio chunk sent to Vobiz — opener started")
+                        first_chunk = False
+                    payload = _b64.b64encode(ulaw_audio).decode()
+                    msg = _json.dumps({
+                        "event": "playAudio",
+                        "media": {
+                            "contentType": "audio/x-mulaw",
+                            "sampleRate": 8000,
+                            "payload": payload,
+                        },
+                    })
+                    try:
+                        await client_ws.send_text(msg)
+                    except Exception as e:
+                        logger.warning(f"ML WebSocket send failed during opener: {e}")
+                        break
+                await asyncio.sleep(0.018)
+
+            logger.info("ML pre-synth opener direct-send complete")
+            deadline = asyncio.get_event_loop().time() + 6.0
+            while asyncio.get_event_loop().time() < deadline:
+                ws = getattr(tts, "_websocket", None)
+                if ws is not None and ws.state == WsState.OPEN:
+                    logger.info("ML TTS WebSocket ready for turn 2")
+                    break
+                await asyncio.sleep(0.05)
+            else:
+                logger.warning("ML TTS WS not ready after 6s — turn 2 may be delayed")
+
+        else:
+            logger.warning("No ML pre-synth audio — waiting for TTS WebSocket")
+            deadline = asyncio.get_event_loop().time() + 8.0
+            while asyncio.get_event_loop().time() < deadline:
+                ws = getattr(tts, "_websocket", None)
+                if ws is not None and ws.state == WsState.OPEN:
+                    break
+                await asyncio.sleep(0.05)
+            else:
+                logger.warning("ML TTS WebSocket did not connect within 8s — speaking anyway")
+            elapsed = 8.0 - max(0.0, deadline - asyncio.get_event_loop().time())
+            logger.info(f"ML TTS ready in ~{elapsed:.1f}s. Speaking opener via TTSSpeakFrame")
+            await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
 
 
 

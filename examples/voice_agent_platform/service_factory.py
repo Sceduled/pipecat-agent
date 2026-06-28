@@ -1,7 +1,7 @@
 import os
 from loguru import logger
 
-def create_stt_service(provider: str = "deepgram", model: str = "nova-2-phonecall", language: str = "en", prewarmed: bool = True):
+def create_stt_service(provider: str = "deepgram", model: str = "nova-2-conversationalai", language: str = "en", prewarmed: bool = True, keywords: str = "", timeout: str = "500ms", eager: str = "enabled"):
     provider = (provider or "deepgram").lower()
     if provider == "deepgram":
         api_key = os.environ.get("DEEPGRAM_API_KEY", "")
@@ -15,13 +15,21 @@ def create_stt_service(provider: str = "deepgram", model: str = "nova-2-phonecal
         else:
             from pipecat.services.deepgram.stt import DeepgramSTTService
             
+        # Parse utterance end ms safely
+        end_ms = 1000
+        if timeout:
+            try:
+                end_ms = int(str(timeout).replace("ms", "").strip())
+            except Exception:
+                end_ms = 1000
+
         return DeepgramSTTService(
             api_key=api_key,
             settings=DeepgramSTTService.Settings(
-                model=model or "nova-2-phonecall",
+                model=model or "nova-2-conversationalai",
                 language=language or "en",
                 endpointing=200,
-                utterance_end_ms=1000,
+                utterance_end_ms=end_ms,
                 interim_results=True,
             ),
         )
@@ -33,7 +41,7 @@ def create_stt_service(provider: str = "deepgram", model: str = "nova-2-phonecal
         return SarvamSTTService(api_key=api_key, model=model or "saarika:v2")
     else:
         logger.warning(f"Unknown STT provider '{provider}', falling back to Deepgram")
-        return create_stt_service("deepgram", "nova-2-phonecall", language, prewarmed)
+        return create_stt_service("deepgram", "nova-2-conversationalai", language, prewarmed)
 
 def create_llm_service(provider: str = "openai", model: str = "gpt-4o-mini", temperature: float = 0.7):
     provider = (provider or "openai").lower()
@@ -86,7 +94,7 @@ def create_llm_service(provider: str = "openai", model: str = "gpt-4o-mini", tem
         logger.warning(f"Unknown LLM provider '{provider}', falling back to OpenAI")
         return create_llm_service("openai", "gpt-4o-mini", temp)
 
-def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: float = 1.1, prewarmed: bool = True):
+def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: float = 1.1, prewarmed: bool = True, engine_model: str = "bulbul-v3"):
     provider = (provider or "sarvam").lower()
     if voice and ":" in voice:
         parts = voice.split(":", 1)
@@ -106,11 +114,12 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
         else:
             from pipecat.services.sarvam.tts import SarvamTTSService
             
+        sarvam_model = "bulbul:v3" if "v3" in str(engine_model or "") else "bulbul:v2"
         return SarvamTTSService(
             api_key=api_key,
             settings=SarvamTTSService.Settings(
                 voice_id=voice or "priya",
-                model="bulbul:v3",
+                model=sarvam_model,
                 pace=pace,
                 min_buffer_size=30,
                 max_chunk_length=150
@@ -121,9 +130,11 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
         api_key = os.environ.get("ELEVENLABS_API_KEY", "")
         if not api_key:
             logger.warning("ELEVENLABS_API_KEY is missing from environment!")
+        el_model = "eleven_turbo_v2_5" if "turbo" in str(engine_model or "") else "eleven_multilingual_v2"
         return ElevenLabsTTSService(
             api_key=api_key,
             settings=ElevenLabsTTSService.Settings(
+                model=el_model,
                 voice=voice or "21m00Tcm4TlvDq8ikWAM",
                 speed=pace
             )
@@ -144,8 +155,10 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
         api_key = os.environ.get("OPENAI_API_KEY", "")
         if not api_key:
             logger.warning("OPENAI_API_KEY is missing from environment!")
+        oa_model = "tts-1-hd" if "hd" in str(engine_model or "") else "tts-1"
         return OpenAITTSService(
             api_key=api_key,
+            model=oa_model,
             voice=voice or "alloy",
             speed=pace
         )

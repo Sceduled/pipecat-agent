@@ -18,9 +18,9 @@ function App() {
   const [config, setConfig] = useState({ 
     name: '', company_name: '', niche: 'custom', agent_type: 'inbound', 
     system_prompt: '', voice: 'priya', knowledge_base: '',
-    stt_provider: 'deepgram', stt_model: 'nova-2-phonecall',
+    stt_provider: 'deepgram', stt_model: 'nova-2-conversationalai', stt_keywords: '', stt_timeout: '500ms', stt_eager: 'enabled',
     llm_provider: 'openai', llm_model: 'gpt-4o-mini', llm_temperature: 0.7,
-    tts_provider: 'sarvam', tts_speed: 1.1, opener_text: ''
+    tts_provider: 'sarvam', tts_engine_model: 'bulbul-v3', tts_speed: 1.1, opener_text: ''
   });
   
   const [activeTab, setActiveTab] = useState('config'); // 'config', 'phones', 'dialer', 'logs'
@@ -102,11 +102,15 @@ function App() {
       voice: agent.voice,
       knowledge_base: agent.knowledge_base || '',
       stt_provider: agent.stt_provider || 'deepgram',
-      stt_model: agent.stt_model || 'nova-2-phonecall',
+      stt_model: agent.stt_model || 'nova-2-conversationalai',
+      stt_keywords: agent.stt_keywords || '',
+      stt_timeout: agent.stt_timeout || '500ms',
+      stt_eager: agent.stt_eager || 'enabled',
       llm_provider: agent.llm_provider || 'openai',
       llm_model: agent.llm_model || 'gpt-4o-mini',
       llm_temperature: agent.llm_temperature ?? 0.7,
       tts_provider: agent.tts_provider || 'sarvam',
+      tts_engine_model: agent.tts_engine_model || 'bulbul-v3',
       tts_speed: agent.tts_speed ?? 1.1,
       opener_text: agent.opener_text || ''
     });
@@ -124,11 +128,15 @@ function App() {
         system_prompt: template.prompt,
         voice: 'priya',
         stt_provider: 'deepgram',
-        stt_model: 'nova-2-phonecall',
+        stt_model: 'nova-2-conversationalai',
+        stt_keywords: '',
+        stt_timeout: '500ms',
+        stt_eager: 'enabled',
         llm_provider: 'openai',
         llm_model: 'gpt-4o-mini',
         llm_temperature: 0.7,
         tts_provider: 'sarvam',
+        tts_engine_model: 'bulbul-v3',
         tts_speed: 1.1,
         opener_text: ''
       };
@@ -677,31 +685,33 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Transcriber / STT Section */}
+                  {/* Transcriber / STT Section (Bolna Style) */}
                   <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.25rem', marginBottom: '1.5rem' }}>
-                    <h5 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', color: 'var(--accent-color)' }}>Transcriber (STT Engine)</h5>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <h5 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', color: 'var(--accent-color)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <PhoneCall size={16} /> Transcriber (STT Engine)
+                    </h5>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>STT Provider</label>
+                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>Provider</label>
                         <select 
                           className="text-input"
                           value={config.stt_provider || 'deepgram'} 
                           onChange={e => {
                             const prov = e.target.value;
-                            const defMod = prov === 'sarvam' ? 'saarika:v2' : prov === 'assemblyai' ? 'universal-2' : prov === 'openai' ? 'whisper-1' : 'nova-2-phonecall';
+                            const defMod = prov === 'sarvam' ? 'saarika:v2' : prov === 'assemblyai' ? 'universal-2' : prov === 'openai' ? 'whisper-1' : 'nova-2-conversationalai';
                             setConfig({ ...config, stt_provider: prov, stt_model: defMod });
                           }}
                         >
-                          <option value="deepgram">Deepgram (Ultra-Fast Phone Engine)</option>
-                          <option value="sarvam">Sarvam AI (Saarika Indian Speech)</option>
-                          <option value="assemblyai">AssemblyAI (Universal-2 Audio)</option>
-                          <option value="openai">OpenAI (Whisper V2 Engine)</option>
-                          <option value="gladia">Gladia (Multilingual Fast)</option>
+                          <option value="deepgram">Deepgram</option>
+                          <option value="sarvam">Sarvam AI</option>
+                          <option value="assemblyai">AssemblyAI</option>
+                          <option value="openai">OpenAI</option>
+                          <option value="gladia">Gladia</option>
                         </select>
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>Model & Language</label>
-                        <select className="text-input" value={config.stt_model || 'nova-2-phonecall'} onChange={e => setConfig({ ...config, stt_model: e.target.value })}>
+                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>Model</label>
+                        <select className="text-input" value={config.stt_model || 'nova-2-conversationalai'} onChange={e => setConfig({ ...config, stt_model: e.target.value })}>
                           {config.stt_provider === 'sarvam' ? (
                             <>
                               <option value="saarika:v2">Saarika v2 (10+ Indian Languages)</option>
@@ -714,7 +724,7 @@ function App() {
                             </>
                           ) : config.stt_provider === 'openai' ? (
                             <>
-                              <option value="whisper-1">Whisper-1 (English & Multilingual)</option>
+                              <option value="whisper-1">Whisper-1 (Multilingual)</option>
                             </>
                           ) : config.stt_provider === 'gladia' ? (
                             <>
@@ -722,40 +732,104 @@ function App() {
                             </>
                           ) : (
                             <>
-                              <option value="nova-2-phonecall">Nova-2 Phonecall (English US/IN Optimized)</option>
-                              <option value="nova-2-general">Nova-2 General (Multilingual)</option>
-                              <option value="nova">Nova Legacy</option>
+                              <option value="nova-2-conversationalai">Nova-2 Conversational AI (Recommended)</option>
+                              <option value="nova-2-phonecall">Nova-2 Phonecall (US/IN Optimized)</option>
+                              <option value="nova-3-medical">Nova-3 Medical & Healthcare</option>
+                              <option value="nova-2-finance">Nova-2 Finance & Banking</option>
+                              <option value="nova-2-drivethru">Nova-2 Drive-Thru & Food</option>
+                              <option value="flux">Flux Multilingual</option>
                             </>
                           )}
                         </select>
                       </div>
                     </div>
+
+                    {/* STT Tuning Controls */}
+                    <div style={{ background: 'rgba(0,0,0,0.15)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                      <div style={{ marginBottom: '0.8rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>Keywords (Custom Vocabulary Weighting)</label>
+                        <input 
+                          type="text" 
+                          className="text-input" 
+                          placeholder="e.g. BHK:100, crore:100, lakh:100, Whitefield:100, Sarjapur:100"
+                          value={config.stt_keywords || ''}
+                          onChange={e => setConfig({ ...config, stt_keywords: e.target.value })}
+                        />
+                        <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', margin: '0.3rem 0 0 0' }}>Boosts recognition accuracy for brand names, Indian currency, and local real estate jargon.</p>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>EndOfTurn Timeout</label>
+                          <select className="text-input" value={config.stt_timeout || '500ms'} onChange={e => setConfig({ ...config, stt_timeout: e.target.value })}>
+                            <option value="300ms">300ms (Aggressive Fast)</option>
+                            <option value="500ms">500ms (Balanced Default)</option>
+                            <option value="700ms">700ms (Relaxed Pace)</option>
+                            <option value="1000ms">1000ms (Long Pauses)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>Eager EndOfTurn</label>
+                          <select className="text-input" value={config.stt_eager || 'enabled'} onChange={e => setConfig({ ...config, stt_eager: e.target.value })}>
+                            <option value="enabled">Enabled (Predictive Turn Taking)</option>
+                            <option value="disabled">Disabled (Strict Silence Wait)</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Voice Synthesizer / TTS Section */}
+                  {/* Voice Synthesizer / TTS Section (Bolna Style 3-Column Cascade) */}
                   <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.25rem', marginBottom: '1.5rem' }}>
-                    <h5 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', color: 'var(--accent-color)' }}>Voice Synthesizer (TTS Engine)</h5>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                    <h5 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', color: 'var(--accent-color)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Bot size={16} /> Text-to-Speech (TTS Engine)
+                    </h5>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '0.8rem' }}>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>TTS Provider</label>
+                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>Provider</label>
                         <select 
                           className="text-input"
                           value={config.tts_provider || (config.voice && config.voice.includes(':') ? config.voice.split(':')[0] : 'sarvam')} 
                           onChange={e => {
                             const prov = e.target.value;
                             const defVoice = prov === 'elevenlabs' ? 'elevenlabs:neha' : prov === 'openai' ? 'openai:alloy' : prov === 'deepgram' ? 'deepgram:aura-asteria-en' : 'sarvam:priya';
+                            const defModel = prov === 'sarvam' ? 'bulbul-v3' : prov === 'elevenlabs' ? 'turbo-v2.5' : prov === 'openai' ? 'tts-1' : 'aura';
                             const vId = defVoice.split(':')[1];
-                            setConfig({ ...config, tts_provider: prov, voice: defVoice, tts_voice: vId });
+                            setConfig({ ...config, tts_provider: prov, tts_engine_model: defModel, voice: defVoice, tts_voice: vId });
                           }}
                         >
-                          <option value="sarvam">Sarvam AI (Indian Accents)</option>
-                          <option value="elevenlabs">ElevenLabs (Ultra Realistic)</option>
-                          <option value="openai">OpenAI Audio (Fast & Clean)</option>
-                          <option value="deepgram">Deepgram Aura (Low Latency)</option>
+                          <option value="sarvam">Sarvam AI</option>
+                          <option value="elevenlabs">ElevenLabs</option>
+                          <option value="openai">OpenAI Audio</option>
+                          <option value="deepgram">Deepgram Aura</option>
                         </select>
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>Voice Persona</label>
+                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>Model</label>
+                        <select className="text-input" value={config.tts_engine_model || 'bulbul-v3'} onChange={e => setConfig({ ...config, tts_engine_model: e.target.value })}>
+                          {(config.tts_provider === 'elevenlabs' || (config.voice && config.voice.startsWith('elevenlabs'))) ? (
+                            <>
+                              <option value="turbo-v2.5">Eleven Turbo v2.5 (Lowest Latency)</option>
+                              <option value="multilingual-v2">Eleven Multilingual v2 (High Expressivity)</option>
+                            </>
+                          ) : (config.tts_provider === 'openai' || (config.voice && config.voice.startsWith('openai'))) ? (
+                            <>
+                              <option value="tts-1">TTS-1 (Real-time Fast)</option>
+                              <option value="tts-1-hd">TTS-1-HD (Studio Quality)</option>
+                            </>
+                          ) : (config.tts_provider === 'deepgram' || (config.voice && config.voice.startsWith('deepgram'))) ? (
+                            <>
+                              <option value="aura">Aura Real-time</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="bulbul-v3">Bulbul v3 (Latest Indian Speech)</option>
+                              <option value="bulbul-v2">Bulbul v2 (Stable)</option>
+                            </>
+                          )}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>Voice</label>
                         <select 
                           className="text-input"
                           value={config.voice || 'sarvam:priya'} 
@@ -768,45 +842,58 @@ function App() {
                         >
                           {(config.tts_provider === 'elevenlabs' || (config.voice && config.voice.startsWith('elevenlabs'))) ? (
                             <>
-                              <option value="elevenlabs:neha">Neha (Female - Expressive Indian Accent)</option>
-                              <option value="elevenlabs:George">George (Male - Warm British)</option>
-                              <option value="elevenlabs:Sarah">Sarah (Female - Professional American)</option>
-                              <option value="elevenlabs:Charlie">Charlie (Male - Natural Australian)</option>
+                              <option value="elevenlabs:neha">Neha (Female Indian)</option>
+                              <option value="elevenlabs:George">George (British Male)</option>
+                              <option value="elevenlabs:Sarah">Sarah (US Professional)</option>
+                              <option value="elevenlabs:Charlie">Charlie (Australian Male)</option>
                             </>
                           ) : (config.tts_provider === 'openai' || (config.voice && config.voice.startsWith('openai'))) ? (
                             <>
-                              <option value="openai:alloy">Alloy (Neutral & Dynamic)</option>
+                              <option value="openai:alloy">Alloy (Neutral)</option>
                               <option value="openai:shimmer">Shimmer (Female Clear)</option>
                               <option value="openai:echo">Echo (Warm Male)</option>
-                              <option value="openai:onyx">Onyx (Deep Authority Male)</option>
+                              <option value="openai:onyx">Onyx (Deep Authority)</option>
                             </>
                           ) : (config.tts_provider === 'deepgram' || (config.voice && config.voice.startsWith('deepgram'))) ? (
                             <>
-                              <option value="deepgram:aura-asteria-en">Asteria (Female - US English)</option>
-                              <option value="deepgram:aura-orion-en">Orion (Male - US English)</option>
+                              <option value="deepgram:aura-asteria-en">Asteria (US Female)</option>
+                              <option value="deepgram:aura-orion-en">Orion (US Male)</option>
                             </>
                           ) : (
                             <>
-                              <option value="sarvam:priya">Priya (Female - India Natural)</option>
-                              <option value="sarvam:shubh">Shubh (Male - India Warm)</option>
-                              <option value="sarvam:bulbul">Bulbul (Female - Expressive Hindi/Eng)</option>
-                              <option value="sarvam:arjun">Arjun (Male - Deep Executive)</option>
+                              <option value="sarvam:priya">Priya (Female)</option>
+                              <option value="sarvam:shubh">Shubh (Male)</option>
+                              <option value="sarvam:bulbul">Bulbul (Female Hindi/Eng)</option>
+                              <option value="sarvam:arjun">Arjun (Deep Executive Male)</option>
                             </>
                           )}
                         </select>
                       </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>Speech Rate</label>
-                        <select 
-                          className="text-input"
-                          value={config.tts_speed ?? 1.1} 
-                          onChange={e => setConfig({ ...config, tts_speed: parseFloat(e.target.value) })}
-                        >
-                          <option value="0.9">0.9x - Slow & Deliberate</option>
-                          <option value="1.0">1.0x - Natural Normal</option>
-                          <option value="1.1">1.1x - Paced (Recommended)</option>
-                          <option value="1.25">1.25x - Fast & Energetic</option>
-                        </select>
+                    </div>
+
+                    {/* TTS Subtext & Controls */}
+                    <div style={{ background: 'rgba(0,0,0,0.15)', padding: '0.8rem 1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--accent-color)', fontWeight: 500 }}>
+                        {config.voice?.includes('shubh') || config.voice?.includes('George') || config.voice?.includes('arjun') || config.voice?.includes('echo') || config.voice?.includes('onyx') || config.voice?.includes('orion') ? 'Male voice · Conversational optimized' : 'Female voice · Conversational optimized'}
+                      </span>
+                      <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Buffer Size:</span>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#fff', background: 'rgba(255,255,255,0.1)', padding: '0.1rem 0.5rem', borderRadius: '4px' }}>250ms</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Speed rate:</span>
+                          <select 
+                            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '4px' }}
+                            value={config.tts_speed ?? 1.1} 
+                            onChange={e => setConfig({ ...config, tts_speed: parseFloat(e.target.value) })}
+                          >
+                            <option value="0.9" style={{ color: '#000' }}>0.9x Slow</option>
+                            <option value="1.0" style={{ color: '#000' }}>1.0x Normal</option>
+                            <option value="1.1" style={{ color: '#000' }}>1.1x Fast</option>
+                            <option value="1.25" style={{ color: '#000' }}>1.25x Rapid</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
                   </div>

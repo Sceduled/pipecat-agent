@@ -24,9 +24,8 @@ from pipecat.processors.aggregators.llm_response_universal import (
 from pipecat.turns.user_stop.speech_timeout_user_turn_stop_strategy import (
     SpeechTimeoutUserTurnStopStrategy,
 )
-from pipecat.turns.user_mute import AlwaysUserMuteStrategy, FunctionCallUserMuteStrategy
 from pipecat.turns.user_turn_strategies import UserTurnStrategies
-from prewarmed_services import PrewarmedDeepgramSTTService as DeepgramSTTService
+from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.services.sarvam.tts import SarvamTTSService
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketTransport
@@ -70,7 +69,7 @@ PHONE CALL SPEAKING RULES:
 - Never ask more than one question at a time.
 
 TTS PRONUNCIATION RULES — follow these exactly for natural phone audio:
-- Apartment sizes: say conversational real estate terms like "3 BHK apartment" or "2 BHK". Never "2BHK", "3 BHK", or "BHK" alone.
+- Apartment sizes: always say "two B H K" or "three B H K". Never "2BHK", "3 BHK", or "BHK" alone.
 - Money in lakhs: say "85 lakhs" or "90 lakhs". Never "85L", "85 L", or any short form.
 - Money in crores: say "1.5 crores" or "2 crores". Never "1.5 Cr", "2 Cr", or any short form.
 - Area: always say "square feet". Never "sq ft", "sqft", or "sq.ft".
@@ -94,7 +93,7 @@ PHONE CALL SPEAKING RULES:
 - Speak in 1 to 2 complete, naturally flowing sentences per response.
 - Start your responses with a short conversational filler ("Got it, ", "Sure, ", "Okay, ") so you begin speaking immediately while thinking.
 - Use natural contractions ("I've", "You'll", "Let's") and smooth connectors.
-- TOOL CALLING SPEED: When calling tools like book_site_visit or calculate_emi, NEVER say "Just a moment", "Hold on", or "Let me check". Instead, call the tool AND immediately speak the confirmation in the exact same turn! For example, when calling book_site_visit, call the tool and say "Thank you Aditya, your site visit is confirmed for tomorrow morning at 10 o'clock! We look forward to seeing you." immediately.
+- Before calling search_properties, calculate_emi, or book_site_visit, say one short warm sentence first so there is no silence. Example: "Sure, let me check what's available for you." or "Let me work out those numbers." Then immediately make the tool call.
 - Never say confirmation IDs, booking IDs, reference numbers, or RERA numbers. Never.
 - Never say "I'll log this", "let me check", "just a moment", or any backend commentary.
 - Never describe what tool you are calling. Call it silently and give the result naturally.
@@ -107,7 +106,7 @@ PHONE CALL SPEAKING RULES:
 - When the caller says goodbye or the conversation is clearly complete, say a warm farewell, then call end_call silently to hang up. Never mention that you are ending the call.
 
 TTS PRONUNCIATION RULES — follow these exactly:
-- Apartment sizes: say conversational real estate terms like "3 BHK apartment" or "2 BHK". Never "2BHK", "3 BHK", or "BHK" alone.
+- Apartment sizes: always say "two B H K" or "three B H K". Never "2BHK", "3 BHK", or "BHK" alone.
 - Money in lakhs: say "85 lakhs" or "90 lakhs". Never "85L", "85 L", or any short form.
 - Money in crores: say "1.5 crores" or "2 crores". Never "1.5 Cr", "2 Cr", or any short form.
 - Area: always say "square feet". Never "sq ft", "sqft", or "sq.ft".
@@ -135,12 +134,31 @@ async def run_inbound(
     company_name: str,
     knowledge_base: str,
     niche: str,
-    agent_config: dict = None,
-    lead_context: dict = None,
-) -> list:
-    """Build and run the inbound call pipeline."""
-    agent_config = agent_config or {}
-    lead_context = lead_context or {}
+) -> None:
+    """Build and run the inbound call pipeline.
+
+    Args:
+        transport: The FastAPIWebsocketTransport connected to Vobiz.
+        deepgram_api_key: Deepgram API key for STT.
+        openai_api_key: OpenAI API key for LLM.
+        sarvam_api_key: Sarvam API key for TTS.
+        system_prompt: DB-configured system prompt.
+        voice: DB-configured TTS voice.
+    """
+
+    # --- STT ---
+    # nova-2-phonecall: tuned for G.711 µ-law telephone audio.
+    # endpointing=300ms: Deepgram fires final transcript 300ms after speech stops
+    # (default never fires on phone lines because background noise prevents silence).
+    stt = DeepgramSTTService(
+        api_key=deepgram_api_key,
+        settings=DeepgramSTTService.Settings(
+            model="nova-2-phonecall",
+            endpointing=300,
+            utterance_end_ms=1000,
+            interim_results=True,
+        ),
+    )
 
     system_prompt_final = (
         f"You are representing: {company_name}\n\n"
@@ -149,26 +167,22 @@ async def run_inbound(
         f"{_BASE_RULES}"
     )
 
-    # --- Dynamic Services via Service Factory ---
-    from service_factory import create_stt_service, create_llm_service, create_tts_service
-    stt_provider = agent_config.get("stt_provider", "deepgram")
-    stt_model = agent_config.get("stt_model", "nova-2-conversationalai")
-    stt_keywords = agent_config.get("stt_keywords", "")
-    stt_timeout = agent_config.get("stt_timeout", "500ms")
-    stt_eager = agent_config.get("stt_eager", "enabled")
-    stt = create_stt_service(stt_provider, stt_model, prewarmed=False, keywords=stt_keywords, timeout=stt_timeout, eager=stt_eager)
+    # --- LLM ---
+    llm = OpenAILLMService(
+        api_key=openai_api_key,
+        settings=OpenAILLMService.Settings(
+            model="gpt-4o-mini",
+            system_instruction=system_prompt_final,
+        ),
+    )
 
-    llm_provider = agent_config.get("llm_provider", "openai")
-    llm_model = agent_config.get("llm_model", "gpt-4o-mini")
-    llm_temp = agent_config.get("llm_temperature", 0.7)
-    llm = create_llm_service(llm_provider, llm_model, llm_temp)
-    llm._settings.system_instruction = system_prompt_final
-
-    tts_provider = agent_config.get("tts_provider", "sarvam")
-    tts_engine_model = agent_config.get("tts_engine_model", "bulbul-v3")
-    tts_voice = agent_config.get("tts_voice", voice)
-    tts_speed = agent_config.get("tts_speed", 1.1)
-    tts = create_tts_service(tts_provider, tts_voice, tts_speed, prewarmed=False, engine_model=tts_engine_model)
+    # --- TTS ---
+    # WebSocket streaming: first audio arrives in ~0.4s (vs 3+ s for HTTP).
+    # min_buffer_size=80: Sarvam accumulates 80 chars before starting synthesis,
+    # so each short sentence is ONE synthesis job → smooth continuous audio.
+    # (With min_buffer_size=25, every 25-char burst is separate → word-by-word.)
+    from tts_helper import get_tts_service
+    tts = get_tts_service(voice)
 
     # --- Context + aggregator ---
     from tools import INBOUND_TOOLS, transfer_to_agent
@@ -177,10 +191,6 @@ async def run_inbound(
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(
-            user_mute_strategies=[
-                AlwaysUserMuteStrategy(),
-                FunctionCallUserMuteStrategy(),
-            ],
             # min_volume=0.1: phone audio amplitude is ~0.05–0.25 (µ-law decoded).
             # The default 0.6 never triggers on phone lines — bot goes deaf after opener.
             vad_analyzer=SileroVADAnalyzer(
@@ -216,14 +226,7 @@ async def run_inbound(
     async def on_client_connected(_transport, _client):
         logger.info("Inbound call connected — waiting for phone line to settle")
         company = company_name if company_name else "our company"
-        from prompt_engine import render_template
-        raw_opener = agent_config.get("opener_text") or f"Hi, thanks for calling {{company_name}}. How can I help you today?"
-        render_ctx = {
-            "company_name": company,
-            "name": agent_config.get("name", "AI Assistant"),
-            "niche": niche
-        }
-        opener = render_template(raw_opener, render_ctx)
+        opener = f"Hi, thanks for calling {company}. How can I help you today?"
         # Add greeting to context immediately (before any await) so any user
         # speech during the startup window sees a prior assistant turn — the LLM
         # won't re-introduce even if the opener is interrupted.
@@ -231,16 +234,7 @@ async def run_inbound(
         # 0.7s guard: phone lines emit a noise burst at ~600ms that fires VAD and
         # would interrupt TTS if we start earlier. Must sleep past it.
         await asyncio.sleep(0.7)
-
-        from websockets.protocol import State as WsState
-        deadline = asyncio.get_event_loop().time() + 3.0
-        while asyncio.get_event_loop().time() < deadline:
-            ws = getattr(tts, "_websocket", None)
-            if ws is not None and ws.state == WsState.OPEN:
-                break
-            await asyncio.sleep(0.02)
-
-        logger.info("Queuing greeting via live WebSocket TTSSpeakFrame")
+        logger.info("Queuing greeting via TTSSpeakFrame")
         await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
 
     @transport.event_handler("on_client_disconnected")

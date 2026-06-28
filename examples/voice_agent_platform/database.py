@@ -32,19 +32,23 @@ class Agent(Base):
     
     # Zero-code multi-provider switching columns
     stt_provider = Column(String, nullable=False, default="deepgram")
-    stt_model = Column(String, nullable=False, default="nova-2-phonecall")
+    stt_model = Column(String, nullable=False, default="nova-2-conversationalai")
+    stt_keywords = Column(String, nullable=False, default="")
+    stt_timeout = Column(String, nullable=False, default="500ms")
+    stt_eager = Column(String, nullable=False, default="enabled")
     llm_provider = Column(String, nullable=False, default="openai")
     llm_model = Column(String, nullable=False, default="gpt-4o-mini")
     llm_temperature = Column(Float, nullable=False, default=0.7)
     tts_provider = Column(String, nullable=False, default="sarvam")
+    tts_engine_model = Column(String, nullable=False, default="bulbul-v3")
     tts_voice = Column(String, nullable=False, default="priya")
     tts_speed = Column(Float, nullable=False, default=1.1)
     opener_text = Column(Text, nullable=False, default="Hi {{lead_name}}, I'm calling from {{company_name}}. Do you have a moment to chat?")
     
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    phone_numbers = relationship("PhoneNumber", back_populates="agent", cascade="all, delete-orphan")
-    call_logs = relationship("CallLog", back_populates="agent", cascade="all, delete-orphan")
+    phone_numbers = relationship("PhoneNumber", back_populates="agent", cascade="all, delete-orphan", passive_deletes=True)
+    call_logs = relationship("CallLog", back_populates="agent", cascade="all, delete-orphan", passive_deletes=True)
 
 class PhoneNumber(Base):
     __tablename__ = "phone_numbers"
@@ -75,11 +79,15 @@ def auto_migrate():
         "ALTER TABLE agents ADD COLUMN knowledge_base TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE call_logs ADD COLUMN transcript TEXT",
         "ALTER TABLE agents ADD COLUMN stt_provider VARCHAR NOT NULL DEFAULT 'deepgram'",
-        "ALTER TABLE agents ADD COLUMN stt_model VARCHAR NOT NULL DEFAULT 'nova-2-phonecall'",
+        "ALTER TABLE agents ADD COLUMN stt_model VARCHAR NOT NULL DEFAULT 'nova-2-conversationalai'",
+        "ALTER TABLE agents ADD COLUMN stt_keywords VARCHAR NOT NULL DEFAULT ''",
+        "ALTER TABLE agents ADD COLUMN stt_timeout VARCHAR NOT NULL DEFAULT '500ms'",
+        "ALTER TABLE agents ADD COLUMN stt_eager VARCHAR NOT NULL DEFAULT 'enabled'",
         "ALTER TABLE agents ADD COLUMN llm_provider VARCHAR NOT NULL DEFAULT 'openai'",
         "ALTER TABLE agents ADD COLUMN llm_model VARCHAR NOT NULL DEFAULT 'gpt-4o-mini'",
         "ALTER TABLE agents ADD COLUMN llm_temperature FLOAT NOT NULL DEFAULT 0.7",
         "ALTER TABLE agents ADD COLUMN tts_provider VARCHAR NOT NULL DEFAULT 'sarvam'",
+        "ALTER TABLE agents ADD COLUMN tts_engine_model VARCHAR NOT NULL DEFAULT 'bulbul-v3'",
         "ALTER TABLE agents ADD COLUMN tts_voice VARCHAR NOT NULL DEFAULT 'priya'",
         "ALTER TABLE agents ADD COLUMN tts_speed FLOAT NOT NULL DEFAULT 1.1",
         "ALTER TABLE agents ADD COLUMN opener_text TEXT NOT NULL DEFAULT 'Hi {{lead_name}}, I''m calling from {{company_name}}. Do you have a moment to chat?'"
