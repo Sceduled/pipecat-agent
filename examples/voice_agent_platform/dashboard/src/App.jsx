@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bot, Save, CheckCircle2, Plus, User, Phone, PhoneCall, PhoneOutgoing, LayoutGrid, Settings, Trash2, ArrowLeft } from 'lucide-react';
+import { Bot, Save, CheckCircle2, Plus, User, Phone, PhoneCall, PhoneOutgoing, LayoutGrid, Settings, Trash2, ArrowLeft, MessageSquare, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './index.css';
 
