@@ -528,288 +528,317 @@ function App() {
 
             {activeTab === 'config' && (
               <div>
-                <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div>
-                    <label>Company Name</label>
-                    <input 
-                      type="text" 
-                      className="text-input"
-                      value={config.company_name} 
-                      onChange={e => setConfig({ ...config, company_name: e.target.value })} 
-                      placeholder="e.g. Skyline Developers"
-                    />
-                  </div>
-                  <div>
-                    <label>Agent Niche / Capabilities</label>
-                    <select className="text-input" value={config.niche} onChange={e => setConfig({ ...config, niche: e.target.value })}>
-                      <option value="real_estate">Real Estate (Property Search Tools)</option>
-                      <option value="custom">Custom / Generic (Basic Tools)</option>
-                      <option value="healthcare">Healthcare</option>
-                      <option value="customer_support">Customer Support</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* AI Intelligence / LLM Section */}
-                <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.5rem', marginTop: '1rem' }}>
-                  <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: 'var(--accent-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Bot size={18} /> Model & Intelligence (LLM Engine)
-                  </h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>AI Provider</label>
-                      <select 
-                        className="text-input"
-                        value={config.llm_provider || 'openai'} 
-                        onChange={e => {
-                          const prov = e.target.value;
-                          const defaultModel = prov === 'groq' ? 'llama-3.1-70b-versatile' : prov === 'anthropic' ? 'claude-3-5-sonnet-20241022' : prov === 'together' ? 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo' : 'gpt-4o-mini';
-                          setConfig({ ...config, llm_provider: prov, llm_model: defaultModel });
-                        }}
-                      >
-                        <option value="openai">OpenAI</option>
-                        <option value="groq">Groq (Ultra-Fast Llama 3)</option>
-                        <option value="together">Together AI</option>
-                        <option value="anthropic">Anthropic (Claude)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>Model</label>
-                      <select className="text-input" value={config.llm_model || 'gpt-4o-mini'} onChange={e => setConfig({ ...config, llm_model: e.target.value })}>
-                        {config.llm_provider === 'groq' ? (
-                          <>
-                            <option value="llama-3.1-70b-versatile">Llama 3.1 70B Versatile</option>
-                            <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
-                          </>
-                        ) : config.llm_provider === 'anthropic' ? (
-                          <>
-                            <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                            <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
-                          </>
-                        ) : config.llm_provider === 'together' ? (
-                          <>
-                            <option value="meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo">Llama 3.1 70B Turbo</option>
-                          </>
-                        ) : (
-                          <>
-                            <option value="gpt-4o-mini">GPT-4o Mini (Fast & Cheap)</option>
-                            <option value="gpt-4o">GPT-4o (Most Intelligent)</option>
-                          </>
-                        )}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>Temperature</label>
-                      <select 
-                        className="text-input"
-                        value={config.llm_temperature ?? 0.7} 
-                        onChange={e => setConfig({ ...config, llm_temperature: parseFloat(e.target.value) })}
-                      >
-                        <option value="0.2">0.2 - Precise & Factual</option>
-                        <option value="0.5">0.5 - Focused & Balanced</option>
-                        <option value="0.7">0.7 - Natural Conversational (Default)</option>
-                        <option value="0.9">0.9 - Highly Creative</option>
-                        <option value="1.0">1.0 - Dynamic & Spontaneous</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Transcriber / STT Section */}
-                <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.5rem' }}>
-                  <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: 'var(--accent-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <PhoneCall size={18} /> Transcriber / Speech Recognition (STT)
-                  </h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>STT Provider</label>
-                      <select 
-                        className="text-input"
-                        value={config.stt_provider || 'deepgram'} 
-                        onChange={e => {
-                          const prov = e.target.value;
-                          const defMod = prov === 'sarvam' ? 'saarika:v2' : prov === 'assemblyai' ? 'universal-2' : prov === 'openai' ? 'whisper-1' : 'nova-2-phonecall';
-                          setConfig({ ...config, stt_provider: prov, stt_model: defMod });
-                        }}
-                      >
-                        <option value="deepgram">Deepgram (Ultra-Fast Phone Engine)</option>
-                        <option value="sarvam">Sarvam AI (Saarika Indian Speech)</option>
-                        <option value="assemblyai">AssemblyAI (Universal-2 Audio)</option>
-                        <option value="openai">OpenAI (Whisper V2 Engine)</option>
-                        <option value="gladia">Gladia (Multilingual Fast)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>Transcriber Model & Language</label>
-                      <select className="text-input" value={config.stt_model || 'nova-2-phonecall'} onChange={e => setConfig({ ...config, stt_model: e.target.value })}>
-                        {config.stt_provider === 'sarvam' ? (
-                          <>
-                            <option value="saarika:v2">Saarika v2 (10+ Indian Languages)</option>
-                            <option value="saarika:v1">Saarika v1 (Legacy)</option>
-                          </>
-                        ) : config.stt_provider === 'assemblyai' ? (
-                          <>
-                            <option value="universal-2">Universal-2 (Best Accuracy)</option>
-                            <option value="nano">Nano (Fast Real-time)</option>
-                          </>
-                        ) : config.stt_provider === 'openai' ? (
-                          <>
-                            <option value="whisper-1">Whisper-1 (English & Multilingual)</option>
-                          </>
-                        ) : config.stt_provider === 'gladia' ? (
-                          <>
-                            <option value="fast">Gladia Fast Transcribe</option>
-                          </>
-                        ) : (
-                          <>
-                            <option value="nova-2-phonecall">Nova-2 Phonecall (English US/IN Optimized)</option>
-                            <option value="nova-2-general">Nova-2 General (Multilingual)</option>
-                            <option value="nova">Nova Legacy</option>
-                          </>
-                        )}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Voice Synthesizer / TTS Section */}
-                <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.5rem' }}>
-                  <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: 'var(--accent-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Bot size={18} /> Voice Synthesizer / Audio Output (TTS)
-                  </h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>TTS Provider</label>
-                      <select 
-                        className="text-input"
-                        value={config.tts_provider || (config.voice && config.voice.includes(':') ? config.voice.split(':')[0] : 'sarvam')} 
-                        onChange={e => {
-                          const prov = e.target.value;
-                          const defVoice = prov === 'elevenlabs' ? 'elevenlabs:neha' : prov === 'openai' ? 'openai:alloy' : prov === 'deepgram' ? 'deepgram:aura-asteria-en' : 'sarvam:priya';
-                          const vId = defVoice.split(':')[1];
-                          setConfig({ ...config, tts_provider: prov, voice: defVoice, tts_voice: vId });
-                        }}
-                      >
-                        <option value="sarvam">Sarvam AI (Indian Accents)</option>
-                        <option value="elevenlabs">ElevenLabs (Ultra Realistic)</option>
-                        <option value="openai">OpenAI Audio (Fast & Clean)</option>
-                        <option value="deepgram">Deepgram Aura (Low Latency)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>Voice Persona</label>
-                      <select 
-                        className="text-input"
-                        value={config.voice || 'sarvam:priya'} 
-                        onChange={e => {
-                          const val = e.target.value;
-                          const prov = val.includes(':') ? val.split(':')[0] : (config.tts_provider || 'sarvam');
-                          const vId = val.includes(':') ? val.split(':')[1] : val;
-                          setConfig({ ...config, voice: val, tts_provider: prov, tts_voice: vId });
-                        }}
-                      >
-                        {(config.tts_provider === 'elevenlabs' || (config.voice && config.voice.startsWith('elevenlabs'))) ? (
-                          <>
-                            <option value="elevenlabs:neha">Neha (Female - Expressive Indian Accent)</option>
-                            <option value="elevenlabs:George">George (Male - Warm British)</option>
-                            <option value="elevenlabs:Sarah">Sarah (Female - Professional American)</option>
-                            <option value="elevenlabs:Charlie">Charlie (Male - Natural Australian)</option>
-                          </>
-                        ) : (config.tts_provider === 'openai' || (config.voice && config.voice.startsWith('openai'))) ? (
-                          <>
-                            <option value="openai:alloy">Alloy (Neutral & Dynamic)</option>
-                            <option value="openai:shimmer">Shimmer (Female Clear)</option>
-                            <option value="openai:echo">Echo (Warm Male)</option>
-                            <option value="openai:onyx">Onyx (Deep Authority Male)</option>
-                          </>
-                        ) : (config.tts_provider === 'deepgram' || (config.voice && config.voice.startsWith('deepgram'))) ? (
-                          <>
-                            <option value="deepgram:aura-asteria-en">Asteria (Female - US English)</option>
-                            <option value="deepgram:aura-orion-en">Orion (Male - US English)</option>
-                          </>
-                        ) : (
-                          <>
-                            <option value="sarvam:priya">Priya (Female - India Natural)</option>
-                            <option value="sarvam:shubh">Shubh (Male - India Warm)</option>
-                            <option value="sarvam:bulbul">Bulbul (Female - Expressive Hindi/Eng)</option>
-                            <option value="sarvam:arjun">Arjun (Male - Deep Executive)</option>
-                          </>
-                        )}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>Speech Pacing / Rate</label>
-                      <select 
-                        className="text-input"
-                        value={config.tts_speed ?? 1.1} 
-                        onChange={e => setConfig({ ...config, tts_speed: parseFloat(e.target.value) })}
-                      >
-                        <option value="0.9">0.9x - Slow & Deliberate</option>
-                        <option value="1.0">1.0x - Natural Normal</option>
-                        <option value="1.1">1.1x - Paced (Recommended)</option>
-                        <option value="1.25">1.25x - Fast & Energetic</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Persona & Prompts Section */}
-                <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.5rem' }}>
-                  <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: 'var(--accent-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Settings size={18} /> Dynamic Prompts & Greeting
+                {/* Bolna-Style Card 1: Agent Welcome Message */}
+                <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem' }}>
+                  <h4 style={{ margin: '0 0 1rem 0', fontSize: '1.05rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+                    <MessageSquare size={18} style={{ color: 'var(--accent-color)' }} /> Agent Welcome Message
                   </h4>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>Opening Greeting / First Message</label>
                     <input 
                       type="text" 
                       className="text-input"
                       value={config.opener_text || ''} 
                       onChange={e => setConfig({ ...config, opener_text: e.target.value })} 
-                      placeholder="e.g. Hi {{lead_name}}, I'm calling from {{company_name}} regarding your inquiry."
+                      placeholder="Hello"
+                      style={{ fontSize: '1rem', padding: '0.85rem 1rem' }}
                     />
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.4rem' }}>
-                      Supports zero-code variable interpolation: <code style={{ color: 'var(--accent-color)' }}>{"{{lead_name}}"}</code>, <code style={{ color: 'var(--accent-color)' }}>{"{{company_name}}"}</code>. Leave empty for default auto-greeting.
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.5rem 0 0 0' }}>
+                      You can define variables using <code style={{ color: 'var(--accent-color)' }}>{"{{variable_name}}"}</code> (e.g. <code style={{ color: 'var(--accent-color)' }}>{"{{lead_name}}"}</code>, <code style={{ color: 'var(--accent-color)' }}>{"{{company_name}}"}</code>). Leave blank to wait for caller.
                     </p>
                   </div>
+                </div>
 
-                  <div className="form-group" style={{ marginTop: '1rem' }}>
-                    <label>System Prompt (Persona Instruction)</label>
+                {/* Bolna-Style Card 2: Prompt Canvas */}
+                <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h4 style={{ margin: 0, fontSize: '1.05rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+                      <FileText size={18} style={{ color: 'var(--accent-color)' }} /> Canvas
+                    </h4>
+                    <span style={{ background: 'rgba(99, 102, 241, 0.15)', color: 'var(--accent-color)', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600 }}>
+                      English (Primary)
+                    </span>
+                  </div>
+                  <div>
                     <textarea 
-                      style={{ height: '150px' }}
-                      value={config.system_prompt}
+                      style={{ 
+                        height: '320px', 
+                        width: '100%',
+                        background: 'rgba(0, 0, 0, 0.25)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '8px',
+                        padding: '1rem',
+                        color: '#fff',
+                        fontSize: '0.95rem',
+                        lineHeight: '1.6',
+                        fontFamily: "'Inter', sans-serif",
+                        resize: 'vertical'
+                      }}
+                      value={config.system_prompt || ''}
                       onChange={e => setConfig({ ...config, system_prompt: e.target.value })}
+                      placeholder="You are a calm and helpful consultant calling on behalf of..."
                     />
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      Define personality, goals, and handling rules. You can inject variables like <code style={{ color: 'var(--accent-color)' }}>{"{{lead_name}}"}</code> directly into the prompt.
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.6rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      <span>Type <code style={{ color: 'var(--accent-color)' }}>{"{{"}</code> for dynamic lead variables</span>
+                      <span style={{ fontFamily: 'monospace' }}>
+                        {config.system_prompt ? Math.ceil(config.system_prompt.length / 4).toLocaleString() : 0} tokens
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="form-group" style={{ marginTop: '2rem' }}>
-                  <label style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Knowledge Base (Context)</span>
-                    <label className="btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', cursor: 'pointer', margin: 0 }}>
-                      Upload PDF/Word
-                      <input type="file" style={{ display: 'none' }} accept=".pdf,.txt,.docx" onChange={handleFileUpload} />
-                    </label>
-                  </label>
-                  <textarea 
-                    style={{ height: '200px' }}
-                    value={config.knowledge_base}
-                    onChange={e => setConfig({ ...config, knowledge_base: e.target.value })}
-                    placeholder="Paste FAQs, pricing, or product details here... Or click the upload button to extract text from a file."
-                  />
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>The AI has instant access to everything written here.</p>
+                {/* Bolna-Style Card 3: Advanced Settings & Intelligence */}
+                <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem' }}>
+                  <h4 style={{ margin: '0 0 1.25rem 0', fontSize: '1.05rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+                    <Settings size={18} style={{ color: 'var(--accent-color)' }} /> Advanced Settings & Intelligence
+                  </h4>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>Company Name</label>
+                      <input 
+                        type="text" 
+                        className="text-input"
+                        value={config.company_name || ''} 
+                        onChange={e => setConfig({ ...config, company_name: e.target.value })} 
+                        placeholder="e.g. Skyline Developers"
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>Agent Niche / Capabilities</label>
+                      <select className="text-input" value={config.niche || 'custom'} onChange={e => setConfig({ ...config, niche: e.target.value })}>
+                        <option value="real_estate">Real Estate (Property Search Tools)</option>
+                        <option value="custom">Custom / Generic (Basic Tools)</option>
+                        <option value="healthcare">Healthcare</option>
+                        <option value="customer_support">Customer Support</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* AI Intelligence / LLM Section */}
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.25rem', marginBottom: '1.5rem' }}>
+                    <h5 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', color: 'var(--accent-color)' }}>AI Provider & Model</h5>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>AI Provider</label>
+                        <select 
+                          className="text-input"
+                          value={config.llm_provider || 'openai'} 
+                          onChange={e => {
+                            const prov = e.target.value;
+                            const defaultModel = prov === 'groq' ? 'llama-3.1-70b-versatile' : prov === 'anthropic' ? 'claude-3-5-sonnet-20241022' : prov === 'together' ? 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo' : 'gpt-4o-mini';
+                            setConfig({ ...config, llm_provider: prov, llm_model: defaultModel });
+                          }}
+                        >
+                          <option value="openai">OpenAI</option>
+                          <option value="groq">Groq (Ultra-Fast Llama 3)</option>
+                          <option value="together">Together AI</option>
+                          <option value="anthropic">Anthropic (Claude)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>Model</label>
+                        <select className="text-input" value={config.llm_model || 'gpt-4o-mini'} onChange={e => setConfig({ ...config, llm_model: e.target.value })}>
+                          {config.llm_provider === 'groq' ? (
+                            <>
+                              <option value="llama-3.1-70b-versatile">Llama 3.1 70B Versatile</option>
+                              <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
+                            </>
+                          ) : config.llm_provider === 'anthropic' ? (
+                            <>
+                              <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                              <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                            </>
+                          ) : config.llm_provider === 'together' ? (
+                            <>
+                              <option value="meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo">Llama 3.1 70B Turbo</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="gpt-4o-mini">GPT-4o Mini (Fast & Cheap)</option>
+                              <option value="gpt-4o">GPT-4o (Most Intelligent)</option>
+                            </>
+                          )}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>Temperature</label>
+                        <select 
+                          className="text-input"
+                          value={config.llm_temperature ?? 0.7} 
+                          onChange={e => setConfig({ ...config, llm_temperature: parseFloat(e.target.value) })}
+                        >
+                          <option value="0.2">0.2 - Precise & Factual</option>
+                          <option value="0.5">0.5 - Focused & Balanced</option>
+                          <option value="0.7">0.7 - Natural Conversational (Default)</option>
+                          <option value="0.9">0.9 - Highly Creative</option>
+                          <option value="1.0">1.0 - Dynamic & Spontaneous</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Transcriber / STT Section */}
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.25rem', marginBottom: '1.5rem' }}>
+                    <h5 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', color: 'var(--accent-color)' }}>Transcriber (STT Engine)</h5>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>STT Provider</label>
+                        <select 
+                          className="text-input"
+                          value={config.stt_provider || 'deepgram'} 
+                          onChange={e => {
+                            const prov = e.target.value;
+                            const defMod = prov === 'sarvam' ? 'saarika:v2' : prov === 'assemblyai' ? 'universal-2' : prov === 'openai' ? 'whisper-1' : 'nova-2-phonecall';
+                            setConfig({ ...config, stt_provider: prov, stt_model: defMod });
+                          }}
+                        >
+                          <option value="deepgram">Deepgram (Ultra-Fast Phone Engine)</option>
+                          <option value="sarvam">Sarvam AI (Saarika Indian Speech)</option>
+                          <option value="assemblyai">AssemblyAI (Universal-2 Audio)</option>
+                          <option value="openai">OpenAI (Whisper V2 Engine)</option>
+                          <option value="gladia">Gladia (Multilingual Fast)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>Model & Language</label>
+                        <select className="text-input" value={config.stt_model || 'nova-2-phonecall'} onChange={e => setConfig({ ...config, stt_model: e.target.value })}>
+                          {config.stt_provider === 'sarvam' ? (
+                            <>
+                              <option value="saarika:v2">Saarika v2 (10+ Indian Languages)</option>
+                              <option value="saarika:v1">Saarika v1 (Legacy)</option>
+                            </>
+                          ) : config.stt_provider === 'assemblyai' ? (
+                            <>
+                              <option value="universal-2">Universal-2 (Best Accuracy)</option>
+                              <option value="nano">Nano (Fast Real-time)</option>
+                            </>
+                          ) : config.stt_provider === 'openai' ? (
+                            <>
+                              <option value="whisper-1">Whisper-1 (English & Multilingual)</option>
+                            </>
+                          ) : config.stt_provider === 'gladia' ? (
+                            <>
+                              <option value="fast">Gladia Fast Transcribe</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="nova-2-phonecall">Nova-2 Phonecall (English US/IN Optimized)</option>
+                              <option value="nova-2-general">Nova-2 General (Multilingual)</option>
+                              <option value="nova">Nova Legacy</option>
+                            </>
+                          )}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Voice Synthesizer / TTS Section */}
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.25rem', marginBottom: '1.5rem' }}>
+                    <h5 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', color: 'var(--accent-color)' }}>Voice Synthesizer (TTS Engine)</h5>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>TTS Provider</label>
+                        <select 
+                          className="text-input"
+                          value={config.tts_provider || (config.voice && config.voice.includes(':') ? config.voice.split(':')[0] : 'sarvam')} 
+                          onChange={e => {
+                            const prov = e.target.value;
+                            const defVoice = prov === 'elevenlabs' ? 'elevenlabs:neha' : prov === 'openai' ? 'openai:alloy' : prov === 'deepgram' ? 'deepgram:aura-asteria-en' : 'sarvam:priya';
+                            const vId = defVoice.split(':')[1];
+                            setConfig({ ...config, tts_provider: prov, voice: defVoice, tts_voice: vId });
+                          }}
+                        >
+                          <option value="sarvam">Sarvam AI (Indian Accents)</option>
+                          <option value="elevenlabs">ElevenLabs (Ultra Realistic)</option>
+                          <option value="openai">OpenAI Audio (Fast & Clean)</option>
+                          <option value="deepgram">Deepgram Aura (Low Latency)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>Voice Persona</label>
+                        <select 
+                          className="text-input"
+                          value={config.voice || 'sarvam:priya'} 
+                          onChange={e => {
+                            const val = e.target.value;
+                            const prov = val.includes(':') ? val.split(':')[0] : (config.tts_provider || 'sarvam');
+                            const vId = val.includes(':') ? val.split(':')[1] : val;
+                            setConfig({ ...config, voice: val, tts_provider: prov, tts_voice: vId });
+                          }}
+                        >
+                          {(config.tts_provider === 'elevenlabs' || (config.voice && config.voice.startsWith('elevenlabs'))) ? (
+                            <>
+                              <option value="elevenlabs:neha">Neha (Female - Expressive Indian Accent)</option>
+                              <option value="elevenlabs:George">George (Male - Warm British)</option>
+                              <option value="elevenlabs:Sarah">Sarah (Female - Professional American)</option>
+                              <option value="elevenlabs:Charlie">Charlie (Male - Natural Australian)</option>
+                            </>
+                          ) : (config.tts_provider === 'openai' || (config.voice && config.voice.startsWith('openai'))) ? (
+                            <>
+                              <option value="openai:alloy">Alloy (Neutral & Dynamic)</option>
+                              <option value="openai:shimmer">Shimmer (Female Clear)</option>
+                              <option value="openai:echo">Echo (Warm Male)</option>
+                              <option value="openai:onyx">Onyx (Deep Authority Male)</option>
+                            </>
+                          ) : (config.tts_provider === 'deepgram' || (config.voice && config.voice.startsWith('deepgram'))) ? (
+                            <>
+                              <option value="deepgram:aura-asteria-en">Asteria (Female - US English)</option>
+                              <option value="deepgram:aura-orion-en">Orion (Male - US English)</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="sarvam:priya">Priya (Female - India Natural)</option>
+                              <option value="sarvam:shubh">Shubh (Male - India Warm)</option>
+                              <option value="sarvam:bulbul">Bulbul (Female - Expressive Hindi/Eng)</option>
+                              <option value="sarvam:arjun">Arjun (Male - Deep Executive)</option>
+                            </>
+                          )}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>Speech Rate</label>
+                        <select 
+                          className="text-input"
+                          value={config.tts_speed ?? 1.1} 
+                          onChange={e => setConfig({ ...config, tts_speed: parseFloat(e.target.value) })}
+                        >
+                          <option value="0.9">0.9x - Slow & Deliberate</option>
+                          <option value="1.0">1.0x - Natural Normal</option>
+                          <option value="1.1">1.1x - Paced (Recommended)</option>
+                          <option value="1.25">1.25x - Fast & Energetic</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Knowledge Base */}
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.25rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Knowledge Base (Context)</label>
+                      <label className="btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem', cursor: 'pointer', margin: 0 }}>
+                        Upload PDF/Word
+                        <input type="file" style={{ display: 'none' }} accept=".pdf,.txt,.docx" onChange={handleFileUpload} />
+                      </label>
+                    </div>
+                    <textarea 
+                      style={{ height: '160px', width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', color: '#fff', fontSize: '0.9rem' }}
+                      value={config.knowledge_base || ''}
+                      onChange={e => setConfig({ ...config, knowledge_base: e.target.value })}
+                      placeholder="Paste FAQs, pricing, or product details here... Or click the upload button to extract text from a file."
+                    />
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.4rem 0 0 0' }}>The AI has instant access to everything written here during live calls.</p>
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem' }}>
+                {/* Save and Delete Actions Bar */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem', paddingBottom: '3rem' }}>
                   <button 
                     onClick={(e) => handleDeleteAgent(selectedAgentId, e)}
                     style={{ background: 'rgba(255, 50, 50, 0.1)', border: '1px solid rgba(255, 50, 50, 0.2)', color: '#ff4d4d', padding: '0.75rem 1.25rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}
                   >
                     <Trash2 size={18} /> Delete Agent
                   </button>
-                  <button className="btn-primary" onClick={handleSaveConfig} disabled={isSaving}>
+                  <button className="btn-primary" onClick={handleSaveConfig} disabled={isSaving} style={{ padding: '0.75rem 1.5rem', fontSize: '1rem' }}>
                     <Save size={18} /> {isSaving ? 'Saving...' : 'Save Agent'}
                   </button>
                 </div>
