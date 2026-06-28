@@ -448,8 +448,8 @@ async def dial(request: Request):
 
     # Bolna pattern: pre-warm streaming WebSockets during ring phase (~5-10s)
     from service_factory import create_tts_service, create_stt_service
-    prewarmed_tts = create_tts_service(agent_config["tts_provider"], agent_config["tts_voice"], agent_config["tts_speed"], prewarmed=True, engine_model=agent_config.get("tts_engine_model", "bulbul-v3"))
-    prewarmed_stt = create_stt_service(agent_config["stt_provider"], agent_config["stt_model"], prewarmed=True, keywords=agent_config.get("stt_keywords", ""), timeout=agent_config.get("stt_timeout", "500ms"), eager=agent_config.get("stt_eager", "enabled"))
+    prewarmed_tts = create_tts_service(provider=agent_config.get("tts_provider", "sarvam"), voice=agent_config.get("tts_voice", "priya"), speed=agent_config.get("tts_speed", 1.1), prewarmed=True, engine_model=agent_config.get("tts_engine_model", "bulbul-v3"))
+    prewarmed_stt = create_stt_service(provider=agent_config.get("stt_provider", "deepgram"), model=agent_config.get("stt_model", "nova-2-conversationalai"), language=agent_config.get("stt_language", "en"), prewarmed=True, keywords=agent_config.get("stt_keywords", ""), timeout=agent_config.get("stt_timeout", "500ms"), eager=agent_config.get("stt_eager", "enabled"))
     lead_context["prewarmed_tts"] = prewarmed_tts
     lead_context["prewarmed_stt"] = prewarmed_stt
 
@@ -514,8 +514,8 @@ async def dial_multilingual(request: Request):
 
     # Bolna pattern: pre-warm streaming WebSockets during ring phase (~5-10s)
     from service_factory import create_tts_service, create_stt_service
-    prewarmed_tts = create_tts_service(agent_config["tts_provider"], agent_config["tts_voice"], agent_config["tts_speed"], prewarmed=True, engine_model=agent_config.get("tts_engine_model", "bulbul-v3"))
-    prewarmed_stt = create_stt_service(agent_config["stt_provider"], agent_config["stt_model"], prewarmed=True, keywords=agent_config.get("stt_keywords", ""), timeout=agent_config.get("stt_timeout", "500ms"), eager=agent_config.get("stt_eager", "enabled"))
+    prewarmed_tts = create_tts_service(provider=agent_config.get("tts_provider", "sarvam"), voice=agent_config.get("tts_voice", "priya"), speed=agent_config.get("tts_speed", 1.1), prewarmed=True, engine_model=agent_config.get("tts_engine_model", "bulbul-v3"))
+    prewarmed_stt = create_stt_service(provider=agent_config.get("stt_provider", "deepgram"), model=agent_config.get("stt_model", "nova-2-conversationalai"), language=agent_config.get("stt_language", "en"), prewarmed=True, keywords=agent_config.get("stt_keywords", ""), timeout=agent_config.get("stt_timeout", "500ms"), eager=agent_config.get("stt_eager", "enabled"))
     lead_context["prewarmed_tts"] = prewarmed_tts
     lead_context["prewarmed_stt"] = prewarmed_stt
 

@@ -38,7 +38,10 @@ def create_stt_service(provider: str = "deepgram", model: str = "nova-2-conversa
         else:
             dg_model = "nova-2"
 
-        clean_lang = str(language or "en").strip().split("-")[0] if language else "en"
+        raw_lang = str(language).strip() if language and not isinstance(language, bool) else "en"
+        if raw_lang.lower() in ["true", "false", "none", ""]:
+            raw_lang = "en"
+        clean_lang = raw_lang.split("-")[0]
         settings_kwargs = {
             "model": dg_model,
             "language": clean_lang,

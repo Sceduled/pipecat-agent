@@ -238,7 +238,8 @@ async def run_multilingual_outbound(
     stt_keywords = agent_config.get("stt_keywords", "")
     stt_timeout = agent_config.get("stt_timeout", "500ms")
     stt_eager = agent_config.get("stt_eager", "enabled")
-    stt = lead_context.pop("prewarmed_stt", None) or create_stt_service(stt_provider, stt_model, prewarmed=False, keywords=stt_keywords, timeout=stt_timeout, eager=stt_eager)
+    stt_language = agent_config.get("stt_language", "en")
+    stt = lead_context.pop("prewarmed_stt", None) or create_stt_service(provider=stt_provider, model=stt_model, language=stt_language, prewarmed=False, keywords=stt_keywords, timeout=stt_timeout, eager=stt_eager)
 
     llm_provider = agent_config.get("llm_provider", "openai")
     llm_model = agent_config.get("llm_model", "gpt-4o-mini")
