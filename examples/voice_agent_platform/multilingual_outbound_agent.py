@@ -264,12 +264,12 @@ async def run_multilingual_outbound(
                 FunctionCallUserMuteStrategy(),
             ],
             vad_analyzer=SileroVADAnalyzer(
-                params=VADParams(min_volume=0.15, confidence=0.7, stop_secs=0.3)
+                params=VADParams(min_volume=0.15, confidence=0.7, stop_secs=0.2)
             ),
             user_turn_strategies=UserTurnStrategies(
-                stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.25)],
+                stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.2, wait_for_transcript=False)],
             ),
-            user_turn_stop_timeout=2.0,
+            user_turn_stop_timeout=1.0,
         ),
     )
 

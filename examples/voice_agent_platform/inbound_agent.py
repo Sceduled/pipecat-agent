@@ -184,12 +184,12 @@ async def run_inbound(
             # min_volume=0.1: phone audio amplitude is ~0.05–0.25 (µ-law decoded).
             # The default 0.6 never triggers on phone lines — bot goes deaf after opener.
             vad_analyzer=SileroVADAnalyzer(
-                params=VADParams(min_volume=0.1, confidence=0.5, stop_secs=0.3)
+                params=VADParams(min_volume=0.1, confidence=0.5, stop_secs=0.2)
             ),
             user_turn_strategies=UserTurnStrategies(
-                stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.4)],
+                stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.2, wait_for_transcript=False)],
             ),
-            user_turn_stop_timeout=2.0,
+            user_turn_stop_timeout=1.0,
         ),
     )
 
