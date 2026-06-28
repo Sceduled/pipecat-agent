@@ -43,8 +43,8 @@ class Agent(Base):
     
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    phone_numbers = relationship("PhoneNumber", back_populates="agent")
-    call_logs = relationship("CallLog", back_populates="agent")
+    phone_numbers = relationship("PhoneNumber", back_populates="agent", cascade="all, delete-orphan")
+    call_logs = relationship("CallLog", back_populates="agent", cascade="all, delete-orphan")
 
 class PhoneNumber(Base):
     __tablename__ = "phone_numbers"

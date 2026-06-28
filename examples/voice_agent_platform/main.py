@@ -714,6 +714,8 @@ async def delete_agent(agent_id: str, db: Session = Depends(get_db)):
     if not db_agent:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Agent not found")
+    db.query(PhoneNumber).filter(PhoneNumber.agent_id == agent_id).delete()
+    db.query(CallLog).filter(CallLog.agent_id == agent_id).delete()
     db.delete(db_agent)
     db.commit()
     return {"status": "deleted"}
