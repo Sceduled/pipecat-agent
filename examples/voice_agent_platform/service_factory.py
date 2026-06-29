@@ -23,25 +23,28 @@ def create_stt_service(provider: str = "deepgram", model: str = "nova-2-conversa
             except Exception:
                 end_ms = 1000
 
-        # Map UI model strings to valid Deepgram WebSocket model strings
+        raw_lang = str(language).strip() if language and not isinstance(language, bool) else "en"
+        if raw_lang.lower() in ["true", "false", "none", ""]:
+            raw_lang = "en"
+        clean_lang = raw_lang.split("-")[0].lower()
+
+        # Map UI model strings to valid Deepgram WebSocket streaming models
         raw_model = str(model or "nova-2").lower()
-        if "conversational" in raw_model or "flux" in raw_model or raw_model == "nova-2":
+        if clean_lang != "en":
+            # Deepgram domain-specific models only support English on streaming WebSockets
             dg_model = "nova-2"
-        elif "medical" in raw_model:
-            dg_model = "nova-2-medical"
         elif "phonecall" in raw_model:
             dg_model = "nova-2-phonecall"
         elif "finance" in raw_model:
             dg_model = "nova-2-finance"
-        elif "drivethru" in raw_model:
-            dg_model = "nova-2-drivethru"
+        elif "meeting" in raw_model:
+            dg_model = "nova-2-meeting"
+        elif "drivethru" in raw_model or "automotive" in raw_model:
+            dg_model = "nova-2-automotive"
         else:
+            # For conversational, medical, flux, or general, nova-2 is the universal streaming model
             dg_model = "nova-2"
 
-        raw_lang = str(language).strip() if language and not isinstance(language, bool) else "en"
-        if raw_lang.lower() in ["true", "false", "none", ""]:
-            raw_lang = "en"
-        clean_lang = raw_lang.split("-")[0]
         settings_kwargs = {
             "model": dg_model,
             "language": clean_lang,
@@ -50,9 +53,9 @@ def create_stt_service(provider: str = "deepgram", model: str = "nova-2-conversa
             "interim_results": True,
         }
         if keywords and str(keywords).strip():
-            kw_clean = ", ".join([k.strip() for k in str(keywords).split(",") if k.strip()])
-            if kw_clean:
-                settings_kwargs["keywords"] = kw_clean
+            kw_list = [k.strip() for k in str(keywords).split(",") if k.strip()]
+            if kw_list:
+                settings_kwargs["keywords"] = kw_list
 
         return DeepgramSTTService(
             api_key=api_key,

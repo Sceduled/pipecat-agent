@@ -741,12 +741,12 @@ function App() {
                             </>
                           ) : (
                             <>
-                              <option value="nova-2-conversationalai">Nova-2 Conversational AI (Recommended)</option>
-                              <option value="nova-2-phonecall">Nova-2 Phonecall (US/IN Optimized)</option>
-                              <option value="nova-3-medical">Nova-3 Medical & Healthcare</option>
-                              <option value="nova-2-finance">Nova-2 Finance & Banking</option>
-                              <option value="nova-2-drivethru">Nova-2 Drive-Thru & Food</option>
-                              <option value="flux">Flux Multilingual</option>
+                              <option value="nova-2-conversationalai">Nova-2 Conversational / General (Recommended)</option>
+                              <option value="nova-2-phonecall">Nova-2 Phonecall (English Phone Audio)</option>
+                              <option value="nova-2-meeting">Nova-2 Meeting & Conference</option>
+                              <option value="nova-2-finance">Nova-2 Finance & Banking (English)</option>
+                              <option value="nova-2-drivethru">Nova-2 Automotive / Food Order</option>
+                              <option value="flux">Nova-2 Multilingual (Auto-Detect)</option>
                             </>
                           )}
                         </select>
