@@ -926,6 +926,30 @@ function App() {
                             </>
                           )}
                         </select>
+                        {(config.tts_provider === 'elevenlabs' || (config.voice && config.voice.startsWith('elevenlabs'))) && (
+                          <div style={{ marginTop: '0.6rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.78rem', marginBottom: '0.25rem', color: '#a0a0b0' }}>
+                              VoiceLab / Cloned Voice ID Override (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              className="text-input"
+                              placeholder="Paste 20-char ElevenLabs Voice ID here (e.g., 21m00Tcm4TlvDq8ikWAM)"
+                              value={(config.voice && config.voice.includes(':') && config.voice.split(':')[1].length >= 8 && !['neha','aarav','priya','rahul','rachel','sarah','laura','george','charlie','bella','antoni','jessica','eric','chris','brian','daniel','lily','adam','bill','roger','callum','river','harry','liam','alice','matilda'].includes(config.voice.split(':')[1].toLowerCase())) ? config.voice.split(':')[1] : ''}
+                              onChange={e => {
+                                const val = e.target.value.trim();
+                                if (val) {
+                                  setConfig({ ...config, voice: `elevenlabs:${val}`, tts_provider: 'elevenlabs', tts_voice: val });
+                                } else {
+                                  setConfig({ ...config, voice: 'elevenlabs:neha', tts_provider: 'elevenlabs', tts_voice: 'neha' });
+                                }
+                              }}
+                            />
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                              If you created a cloned voice in ElevenLabs, paste its exact ID here.
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 

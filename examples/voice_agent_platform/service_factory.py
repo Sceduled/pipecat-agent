@@ -185,8 +185,8 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
         if voice_lower in el_map:
             # Named alias → map to real ID
             voice = el_map[voice_lower]
-        elif len(str(voice)) >= 15 and voice_lower not in sarvam_voices and voice_lower not in openai_voices and voice_lower not in deepgram_voices:
-            # Raw ElevenLabs voice ID (20-char alphanumeric) → pass through as-is
+        elif len(str(voice)) >= 8 and voice_lower not in sarvam_voices and voice_lower not in openai_voices and voice_lower not in deepgram_voices:
+            # Raw ElevenLabs / VoiceLab ID → pass through as-is
             pass
         elif voice_lower in sarvam_voices or voice_lower in openai_voices or voice_lower in deepgram_voices:
             # Wrong-provider voice name slipped through → use safe default

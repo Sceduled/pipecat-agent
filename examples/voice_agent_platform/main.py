@@ -391,28 +391,41 @@ async def ws_outbound_multilingual(websocket: WebSocket, session: str = Query(..
 
 def get_agent_config_dict(agent_row, body=None):
     body = body or {}
-    override_voice = body.get("voice")
     override_prompt = body.get("system_prompt")
+    override_voice = body.get("voice") or body.get("tts_voice")
+    override_provider = body.get("tts_provider")
+    override_speed = body.get("tts_speed")
+    override_engine_model = body.get("tts_engine_model")
+
+    raw_voice = override_voice or getattr(agent_row, "voice", getattr(agent_row, "tts_voice", "priya")) or "priya"
+    raw_provider = override_provider or getattr(agent_row, "tts_provider", "sarvam") or "sarvam"
+
+    if raw_voice and ":" in str(raw_voice):
+        parts = str(raw_voice).split(":", 1)
+        if not override_provider:
+            raw_provider = parts[0].lower().strip() or raw_provider
+        raw_voice = parts[1].strip()
+
     return {
         "name": agent_row.name if agent_row else "AI Assistant",
         "company_name": agent_row.company_name if agent_row else "",
         "niche": agent_row.niche if agent_row else "custom",
         "knowledge_base": agent_row.knowledge_base if agent_row else "",
         "system_prompt": override_prompt or (agent_row.system_prompt if agent_row else ""),
-        "stt_provider": getattr(agent_row, "stt_provider", "deepgram") or "deepgram",
-        "stt_model": getattr(agent_row, "stt_model", "nova-2-conversationalai") or "nova-2-conversationalai",
-        "stt_keywords": getattr(agent_row, "stt_keywords", "") or "",
-        "stt_timeout": getattr(agent_row, "stt_timeout", "500ms") or "500ms",
-        "stt_eager": getattr(agent_row, "stt_eager", "enabled") or "enabled",
-        "llm_provider": getattr(agent_row, "llm_provider", "openai") or "openai",
-        "llm_model": getattr(agent_row, "llm_model", "gpt-4o-mini") or "gpt-4o-mini",
-        "llm_temperature": getattr(agent_row, "llm_temperature", 0.7) if getattr(agent_row, "llm_temperature", None) is not None else 0.7,
-        "tts_provider": getattr(agent_row, "tts_provider", "sarvam") or "sarvam",
-        "tts_engine_model": getattr(agent_row, "tts_engine_model", "bulbul-v3") or "bulbul-v3",
-        "voice": override_voice or getattr(agent_row, "voice", getattr(agent_row, "tts_voice", "priya")) or "priya",
-        "tts_voice": override_voice or getattr(agent_row, "tts_voice", getattr(agent_row, "voice", "priya")) or "priya",
-        "tts_speed": getattr(agent_row, "tts_speed", 1.1) if getattr(agent_row, "tts_speed", None) is not None else 1.1,
-        "opener_text": getattr(agent_row, "opener_text", "Hi {{lead_name}}, I'm calling from {{company_name}}. Do you have a moment to chat?") or "Hi {{lead_name}}, I'm calling from {{company_name}}. Do you have a moment to chat?"
+        "stt_provider": body.get("stt_provider") or getattr(agent_row, "stt_provider", "deepgram") or "deepgram",
+        "stt_model": body.get("stt_model") or getattr(agent_row, "stt_model", "nova-2-conversationalai") or "nova-2-conversationalai",
+        "stt_keywords": body.get("stt_keywords") or getattr(agent_row, "stt_keywords", "") or "",
+        "stt_timeout": body.get("stt_timeout") or getattr(agent_row, "stt_timeout", "500ms") or "500ms",
+        "stt_eager": body.get("stt_eager") or getattr(agent_row, "stt_eager", "enabled") or "enabled",
+        "llm_provider": body.get("llm_provider") or getattr(agent_row, "llm_provider", "openai") or "openai",
+        "llm_model": body.get("llm_model") or getattr(agent_row, "llm_model", "gpt-4o-mini") or "gpt-4o-mini",
+        "llm_temperature": body.get("llm_temperature") if body.get("llm_temperature") is not None else (getattr(agent_row, "llm_temperature", 0.7) if getattr(agent_row, "llm_temperature", None) is not None else 0.7),
+        "tts_provider": raw_provider,
+        "tts_engine_model": override_engine_model or getattr(agent_row, "tts_engine_model", "bulbul-v3") or "bulbul-v3",
+        "voice": raw_voice,
+        "tts_voice": raw_voice,
+        "tts_speed": override_speed if override_speed is not None else (getattr(agent_row, "tts_speed", 1.1) if getattr(agent_row, "tts_speed", None) is not None else 1.1),
+        "opener_text": body.get("opener_text") or getattr(agent_row, "opener_text", "Hi {{lead_name}}, I'm calling from {{company_name}}. Do you have a moment to chat?") or "Hi {{lead_name}}, I'm calling from {{company_name}}. Do you have a moment to chat?"
     }
 
 @app.post("/dial")
