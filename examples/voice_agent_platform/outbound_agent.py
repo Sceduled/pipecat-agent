@@ -183,26 +183,6 @@ async def dial_lead(
 # Pipeline builder
 # ---------------------------------------------------------------------------
 
-class OpenerProtectionFilter(FrameProcessor):
-    """Prevents initial phone connection noise/echo from interrupting the bot opener."""
-    def __init__(self, protection_duration_secs: float = 2.5):
-        super().__init__()
-        self._protection_duration = protection_duration_secs
-        self._protection_end_time = 0.0
-
-    def start_protection(self, duration_override: float = None):
-        import time
-        dur = duration_override if duration_override is not None else self._protection_duration
-        self._protection_end_time = time.time() + dur
-
-    async def process_frame(self, frame: Frame, direction: FrameDirection):
-        import time
-        if direction == FrameDirection.DOWNSTREAM and time.time() < self._protection_end_time:
-            from pipecat.frames.frames import UserStartedSpeakingFrame, TranscriptionFrame, InterruptionFrame
-            if isinstance(frame, (UserStartedSpeakingFrame, TranscriptionFrame, InterruptionFrame)):
-                return
-        await super().process_frame(frame, direction)
-        await self.push_frame(frame, direction)
 
 
 async def run_outbound(
@@ -293,13 +273,10 @@ async def run_outbound(
         ),
     )
 
-    opener_protection = OpenerProtectionFilter(protection_duration_secs=2.5)
-
     # --- Pipeline ---
     pipeline = Pipeline([
         transport.input(),
         stt,
-        opener_protection,
         user_aggregator,
         llm,
         tts,
@@ -338,7 +315,6 @@ async def run_outbound(
         lead_context.pop("opener_text", None)
 
         logger.info(f"Speaking opener via live WebSocket TTS (100% voice parity): {opener}")
-        opener_protection.start_protection(duration_override=2.5)
         await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
 
 
