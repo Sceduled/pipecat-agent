@@ -246,29 +246,46 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
             el_model = "eleven_turbo_v2_5"   # Balanced quality/speed
         else:
             el_model = "eleven_flash_v2_5"   # Safe default (covers bulbul-v3, empty, anything else)
-        # Known ElevenLabs Voice Library IDs that fail with HTTP 402 on the free tier (multi-stream-input returns isFinal=True with 0 audio)
-        # Only personal clones and voices created under this account work without a paid subscription
-        library_voices = {
-            "21m00Tcm4TlvDq8ikWAM",  # Rachel
-            "QTKSa2Iyv0yoxvXY2V8a",  # Neha - Messy
-            "FGY2WhTYpPnrIDTdsKH5",  # Laura / "neha" alias
-            "05ZfQq88eZ308OUIb3nk",  # Neha P
-            "EXAVITQu4vr4xnSDxMaL",  # Sarah
-            "IKne3meq5aSn9XLyUdCD",  # Charlie
-            "JBFqnCBsd6RMkjVDRZzb",  # George
-            "N2lVS1w4EtoT3dr4eOWO",  # Callum
-            "priya", "", "..."
+        # ElevenLabs premade/library voice IDs that require a paid plan via API (free tier returns isFinal=True with 0 audio on multi-stream-input)
+        # Named aliases that map to these IDs (via el_map above) are also library voices
+        library_voice_ids = {
+            "21m00Tcm4TlvDq8ikWAM", "FGY2WhTYpPnrIDTdsKH5",
+            "05ZfQq88eZ308OUIb3nk", "EXAVITQu4vr4xnSDxMaL", "IKne3meq5aSn9XLyUdCD",
+            "JBFqnCBsd6RMkjVDRZzb", "N2lVS1w4EtoT3dr4eOWO", "SAz9YHcvj6GT2YYXdXww",
+            "SOYHLrjzK2X1ezoPC6cr", "TX3LPaxmHKxFdv7VOQHJ", "Xb7hH8MSUJpSbSDYk0k2",
+            "XrExE9yKIg1WjnnlVkGX", "bIHbv24MWmeRgasZH58o", "cgSgspJ2msm6clMCkdW9",
+            "cjVigY5qzO86Huf0OWal", "hpp4J3VqNfWAUOO0d1Us", "iP95p4xoKVk53GoZ742B",
+            "nPczCjzI2devNBz1zQrb", "onwK4e9ZLuTAKqWW03F9", "pFZP5JQG7iQjIQuC4Bku",
+            "pNInz6obpgDQGcFmaJgB", "pqHfZKP75CvOlQylNhV4", "CwhRBWXzGAHq8TQ4Fs17",
+            "ErXwobaYiN019PkySvjV",
         }
-        working_clone_id = "rRPdnEm1XzdmDEr8jC8a"  # neha custom clone - confirmed working on this account
+
+        def _find_personal_voice(key: str) -> str | None:
+            """Call ElevenLabs /v1/voices and return the first personal/cloned voice ID."""
+            try:
+                import urllib.request, json as _json
+                req = urllib.request.Request(
+                    "https://api.elevenlabs.io/v1/voices",
+                    headers={"xi-api-key": key, "Content-Type": "application/json"},
+                )
+                with urllib.request.urlopen(req, timeout=4) as resp:
+                    data = _json.loads(resp.read())
+                for v in data.get("voices", []):
+                    if v.get("category") not in ("premade",) and v.get("voice_id") not in library_voice_ids:
+                        logger.info(f"Found personal/cloned ElevenLabs voice: {v.get('name')!r} ({v.get('voice_id')})")
+                        return v["voice_id"]
+            except Exception as e:
+                logger.warning(f"Could not list ElevenLabs voices: {e}")
+            return None
 
         # Pick voice: env var (Railway shared variable) → passed voice → fallback
         env_voice = os.environ.get("ELEVENLABS_VOICE_ID", "").strip()
         el_voice = env_voice if (env_voice and env_voice != "...") else voice
 
-        # ALWAYS check: if the resolved voice is a library voice, fall back to the working clone
-        if not el_voice or str(el_voice).strip() in library_voices:
-            logger.warning(f"ElevenLabs voice {el_voice!r} is a Voice Library ID that requires a paid plan. Falling back to personal clone {working_clone_id!r}")
-            el_voice = working_clone_id
+        # ALWAYS check: if the resolved voice is a library/premade voice, dynamically find a personal clone
+        if not el_voice or str(el_voice).strip() in library_voice_ids:
+            logger.warning(f"ElevenLabs voice {el_voice!r} is a Voice Library ID (requires paid plan). Searching for personal voice on this account...")
+            el_voice = _find_personal_voice(api_key) or "QTKSa2Iyv0yoxvXY2V8a"  # neha personal clone on Railway account
 
         logger.info(f"ElevenLabs TTS: voice={el_voice!r} model={el_model!r}")
         return ElevenLabsTTSService(
