@@ -278,14 +278,34 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
                 logger.warning(f"Could not list ElevenLabs voices: {e}")
             return None
 
-        # Pick voice: env var (Railway shared variable) → passed voice → fallback
+        # Pick voice: passed voice (Bolna UI/config switching) -> env var -> fallback
+        passed_voice = str(voice or "").strip()
+        if passed_voice.lower() == "neha":
+            passed_voice = "QTKSa2Iyv0yoxvXY2V8a"
         env_voice = os.environ.get("ELEVENLABS_VOICE_ID", "").strip()
-        el_voice = env_voice if (env_voice and env_voice != "...") else voice
+        el_voice = passed_voice if (passed_voice and passed_voice != "...") else env_voice
 
-        # ALWAYS check: if the resolved voice is a library/premade voice, dynamically find a personal clone
+        # ALWAYS check: if the resolved voice is a library/premade voice, check for a personal clone
         if not el_voice or str(el_voice).strip() in library_voice_ids:
-            logger.warning(f"ElevenLabs voice {el_voice!r} is a Voice Library ID (requires paid plan). Searching for personal voice on this account...")
-            el_voice = _find_personal_voice(api_key) or "QTKSa2Iyv0yoxvXY2V8a"  # neha personal clone on Railway account
+            personal = _find_personal_voice(api_key)
+            if personal:
+                logger.info(f"Found personal clone {personal!r} on account, using WebSocket multi-stream-input")
+                el_voice = personal
+            else:
+                el_voice = el_voice or "QTKSa2Iyv0yoxvXY2V8a"
+                logger.info(f"ElevenLabs voice {el_voice!r} is a Voice Library ID and no personal clone exists on this account. Automatically switching to ElevenLabsHttpTTSService (HTTP streaming) to bypass WebSocket 0-chunk restriction!")
+                import aiohttp
+                from pipecat.services.elevenlabs.tts import ElevenLabsHttpTTSService
+                return ElevenLabsHttpTTSService(
+                    api_key=api_key,
+                    aiohttp_session=aiohttp.ClientSession(),
+                    sample_rate=16000,
+                    settings=ElevenLabsHttpTTSService.Settings(
+                        model=el_model,
+                        voice=el_voice,
+                        speed=pace
+                    )
+                )
 
         logger.info(f"ElevenLabs TTS: voice={el_voice!r} model={el_model!r}")
         return ElevenLabsTTSService(

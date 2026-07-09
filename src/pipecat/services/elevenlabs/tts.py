@@ -1254,6 +1254,14 @@ class ElevenLabsHttpTTSService(TTSService):
             self._voice_settings = self._set_voice_settings()
         return changed
 
+    async def _connect(self):
+        """No-op for HTTP service compatibility with prewarming."""
+        pass
+
+    async def _disconnect(self):
+        """No-op for HTTP service compatibility with prewarming."""
+        pass
+
     def _reset_state(self):
         """Reset internal state variables."""
         self._cumulative_time = 0
