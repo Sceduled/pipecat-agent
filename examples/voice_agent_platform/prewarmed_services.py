@@ -79,28 +79,32 @@ class PrewarmedSarvamTTSService(SarvamTTSService):
             kwargs["sample_rate"] = 16000
         super().__init__(*args, **kwargs)
         _init_task_manager(self)
+        self._connect_lock = asyncio.Lock()
 
     async def _ensure_fresh_connection(self):
-        import time
-        prewarm_age = time.time() - getattr(self, "_prewarm_time", 0.0)
-        if getattr(self, "_websocket", None) is not None and prewarm_age >= 8.0:
-            logger.debug(f"{self}: Reconnecting stale pre-warmed Sarvam WebSocket connection (age={prewarm_age:.1f}s)")
-            await self._disconnect()
-            await self._connect()
+        async with self._connect_lock:
+            import time
+            prewarm_age = time.time() - getattr(self, "_prewarm_time", 0.0)
+            if getattr(self, "_websocket", None) is not None and prewarm_age >= 8.0:
+                logger.debug(f"{self}: Reconnecting stale pre-warmed Sarvam WebSocket connection (age={prewarm_age:.1f}s)")
+                await self._disconnect()
+                await super()._connect()
+                self._prewarm_time = time.time()
 
     async def _connect(self):
-        import time
-        if getattr(self, "_websocket", None) is not None and self._websocket.state is State.OPEN:
-            prewarm_age = time.time() - getattr(self, "_prewarm_time", 0.0)
-            if prewarm_age < 8.0:
-                logger.debug(f"{self}: Reusing recent pre-warmed Sarvam WebSocket connection (age={prewarm_age:.1f}s)")
-                return
-            else:
-                logger.debug(f"{self}: Disconnecting stale pre-warmed Sarvam WebSocket connection (age={prewarm_age:.1f}s)")
-                await self._disconnect()
+        async with self._connect_lock:
+            import time
+            if getattr(self, "_websocket", None) is not None and self._websocket.state is State.OPEN:
+                prewarm_age = time.time() - getattr(self, "_prewarm_time", 0.0)
+                if prewarm_age < 8.0:
+                    logger.debug(f"{self}: Reusing recent pre-warmed Sarvam WebSocket connection (age={prewarm_age:.1f}s)")
+                    return
+                else:
+                    logger.debug(f"{self}: Disconnecting stale pre-warmed Sarvam WebSocket connection (age={prewarm_age:.1f}s)")
+                    await self._disconnect()
 
-        self._prewarm_time = time.time()
-        await super()._connect()
+            self._prewarm_time = time.time()
+            await super()._connect()
 
 if ElevenLabsTTSService:
     class PrewarmedElevenLabsTTSService(ElevenLabsTTSService):
@@ -110,29 +114,35 @@ if ElevenLabsTTSService:
                 kwargs["sample_rate"] = 16000
             super().__init__(*args, **kwargs)
             _init_task_manager(self)
+            self._connect_lock = asyncio.Lock()
             if not getattr(self, "_output_format", None) and output_format_from_sample_rate:
                 self._output_format = output_format_from_sample_rate(self.sample_rate or 16000)
 
         async def _ensure_fresh_connection(self):
-            import time
-            prewarm_age = time.time() - getattr(self, "_prewarm_time", 0.0)
-            if getattr(self, "_websocket", None) is not None and prewarm_age >= 5.0:
-                logger.debug(f"{self}: Reconnecting stale pre-warmed ElevenLabs WebSocket connection (age={prewarm_age:.1f}s)")
-                await self._disconnect()
-                await self._connect()
+            async with self._connect_lock:
+                import time
+                prewarm_age = time.time() - getattr(self, "_prewarm_time", 0.0)
+                if getattr(self, "_websocket", None) is not None and prewarm_age >= 5.0:
+                    logger.debug(f"{self}: Reconnecting stale pre-warmed ElevenLabs WebSocket connection (age={prewarm_age:.1f}s)")
+                    await self._disconnect()
+                    if not self._output_format and output_format_from_sample_rate:
+                        self._output_format = output_format_from_sample_rate(self.sample_rate)
+                    await super()._connect()
+                    self._prewarm_time = time.time()
 
         async def _connect(self):
-            import time
-            if getattr(self, "_websocket", None) is not None and self._websocket.state is State.OPEN:
-                prewarm_age = time.time() - getattr(self, "_prewarm_time", 0.0)
-                if prewarm_age < 5.0:
-                    logger.debug(f"{self}: Reusing recent pre-warmed ElevenLabs WebSocket connection (age={prewarm_age:.1f}s)")
-                    return
-                else:
-                    logger.debug(f"{self}: Disconnecting stale pre-warmed ElevenLabs WebSocket connection (age={prewarm_age:.1f}s) to ensure fresh audio stream and clean tasks")
-                    await self._disconnect()
+            async with self._connect_lock:
+                import time
+                if getattr(self, "_websocket", None) is not None and self._websocket.state is State.OPEN:
+                    prewarm_age = time.time() - getattr(self, "_prewarm_time", 0.0)
+                    if prewarm_age < 5.0:
+                        logger.debug(f"{self}: Reusing recent pre-warmed ElevenLabs WebSocket connection (age={prewarm_age:.1f}s)")
+                        return
+                    else:
+                        logger.debug(f"{self}: Disconnecting stale pre-warmed ElevenLabs WebSocket connection (age={prewarm_age:.1f}s) to ensure fresh audio stream and clean tasks")
+                        await self._disconnect()
 
-            self._prewarm_time = time.time()
-            if not self._output_format and output_format_from_sample_rate:
-                self._output_format = output_format_from_sample_rate(self.sample_rate)
-            await super()._connect()
+                self._prewarm_time = time.time()
+                if not self._output_format and output_format_from_sample_rate:
+                    self._output_format = output_format_from_sample_rate(self.sample_rate)
+                await super()._connect()

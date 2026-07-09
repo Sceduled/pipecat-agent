@@ -336,21 +336,6 @@ async def run_outbound(
         lead_context.pop("opener_pcm", None)
         lead_context.pop("opener_text", None)
 
-        from websockets.protocol import State as WsState
-
-        # If the prewarmed TTS socket sat idle while the phone was ringing (>5s),
-        # reconnect it now so ElevenLabs/Sarvam doesn't drop the opener audio on a timed-out socket.
-        if hasattr(tts, "_ensure_fresh_connection"):
-            await tts._ensure_fresh_connection()
-
-        # Bolna pattern: wait briefly for pre-warmed TTS WebSocket to be open, then speak immediately
-        deadline = asyncio.get_event_loop().time() + 3.0
-        while asyncio.get_event_loop().time() < deadline:
-            ws = getattr(tts, "_websocket", None)
-            if ws is not None and ws.state == WsState.OPEN:
-                break
-            await asyncio.sleep(0.02)
-
         logger.info(f"Speaking opener via live WebSocket TTS (100% voice parity): {opener}")
         opener_protection.start_protection(duration_override=2.5)
         await worker.queue_frames([TTSSpeakFrame(text=opener, append_to_context=False)])
