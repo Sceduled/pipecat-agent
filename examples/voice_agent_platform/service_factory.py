@@ -136,6 +136,16 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
     openai_voices = {"alloy", "echo", "fable", "onyx", "nova", "shimmer"}
     deepgram_voices = {"aura-asteria-en", "aura-luna-en", "aura-stella-en", "aura-athena-en", "aura-hera-en", "aura-orion-en", "aura-arcas-en", "aura-perseus-en", "aura-angus-en", "aura-orpheus-en", "aura-helios-en", "aura-zeus-en"}
     
+    voice_str = str(voice).lower()
+    if len(str(voice)) >= 15 and voice_str not in sarvam_voices and voice_str not in openai_voices and voice_str not in deepgram_voices:
+        provider = "elevenlabs"
+    elif voice_str in openai_voices and provider != "openai":
+        provider = "openai"
+    elif (voice_str in deepgram_voices or voice_str.startswith("aura-")) and provider != "deepgram":
+        provider = "deepgram"
+    elif voice_str in sarvam_voices and provider not in ("sarvam", "elevenlabs"):
+        provider = "sarvam"
+    
     if provider == "elevenlabs":
         el_map = {
             "qtks": "QTKSa2Iyv0yoxvXY2V8a",       # Custom voice (user's own)

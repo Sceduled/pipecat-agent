@@ -409,6 +409,7 @@ def get_agent_config_dict(agent_row, body=None):
         "llm_temperature": getattr(agent_row, "llm_temperature", 0.7) if getattr(agent_row, "llm_temperature", None) is not None else 0.7,
         "tts_provider": getattr(agent_row, "tts_provider", "sarvam") or "sarvam",
         "tts_engine_model": getattr(agent_row, "tts_engine_model", "bulbul-v3") or "bulbul-v3",
+        "voice": override_voice or getattr(agent_row, "voice", getattr(agent_row, "tts_voice", "priya")) or "priya",
         "tts_voice": override_voice or getattr(agent_row, "tts_voice", getattr(agent_row, "voice", "priya")) or "priya",
         "tts_speed": getattr(agent_row, "tts_speed", 1.1) if getattr(agent_row, "tts_speed", None) is not None else 1.1,
         "opener_text": getattr(agent_row, "opener_text", "Hi {{lead_name}}, I'm calling from {{company_name}}. Do you have a moment to chat?") or "Hi {{lead_name}}, I'm calling from {{company_name}}. Do you have a moment to chat?"
@@ -735,7 +736,7 @@ async def create_agent(agent: AgentCreate, db: Session = Depends(get_db)):
         niche=agent.niche,
         agent_type=agent.agent_type,
         system_prompt=agent.system_prompt,
-        voice=agent.tts_voice or agent.voice or "priya",
+        voice=agent.voice or agent.tts_voice or "priya",
         knowledge_base=agent.knowledge_base,
         stt_provider=agent.stt_provider,
         stt_model=agent.stt_model,
@@ -747,7 +748,7 @@ async def create_agent(agent: AgentCreate, db: Session = Depends(get_db)):
         llm_temperature=agent.llm_temperature,
         tts_provider=agent.tts_provider,
         tts_engine_model=agent.tts_engine_model,
-        tts_voice=agent.tts_voice or agent.voice or "priya",
+        tts_voice=agent.voice or agent.tts_voice or "priya",
         tts_speed=agent.tts_speed,
         opener_text=agent.opener_text
     )
@@ -767,7 +768,7 @@ async def update_agent(agent_id: str, agent: AgentUpdate, db: Session = Depends(
     db_agent.niche = agent.niche
     db_agent.agent_type = agent.agent_type
     db_agent.system_prompt = agent.system_prompt
-    db_agent.voice = agent.tts_voice or agent.voice or "priya"
+    db_agent.voice = agent.voice or agent.tts_voice or "priya"
     db_agent.knowledge_base = agent.knowledge_base
     db_agent.stt_provider = agent.stt_provider
     db_agent.stt_model = agent.stt_model
@@ -779,7 +780,7 @@ async def update_agent(agent_id: str, agent: AgentUpdate, db: Session = Depends(
     db_agent.llm_temperature = agent.llm_temperature
     db_agent.tts_provider = agent.tts_provider
     db_agent.tts_engine_model = agent.tts_engine_model
-    db_agent.tts_voice = agent.tts_voice or agent.voice or "priya"
+    db_agent.tts_voice = agent.voice or agent.tts_voice or "priya"
     db_agent.tts_speed = agent.tts_speed
     db_agent.opener_text = agent.opener_text
     db.commit()
