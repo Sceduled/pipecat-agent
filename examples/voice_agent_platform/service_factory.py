@@ -15,13 +15,18 @@ def create_stt_service(provider: str = "deepgram", model: str = "nova-2-conversa
         else:
             from pipecat.services.deepgram.stt import DeepgramSTTService
             
-        # Parse utterance end ms safely
-        end_ms = 1000
+        # Parse timeout safely
+        # Deepgram requires utterance_end_ms >= 1000 (if < 1000, Deepgram returns HTTP 400 Bad Request)
+        # Meanwhile, endpointing is the silence threshold in ms before turn completion (e.g. 200 to 500 ms)
+        parsed_ms = 500
         if timeout:
             try:
-                end_ms = int(str(timeout).replace("ms", "").strip())
+                parsed_ms = int(str(timeout).replace("ms", "").strip())
             except Exception:
-                end_ms = 1000
+                parsed_ms = 500
+
+        endpointing_ms = parsed_ms if parsed_ms < 1000 else 200
+        utterance_end_ms = max(1000, parsed_ms) if parsed_ms >= 1000 else 1000
 
         raw_lang = str(language).strip() if language and not isinstance(language, bool) else "en"
         if raw_lang.lower() in ["true", "false", "none", ""]:
@@ -48,8 +53,8 @@ def create_stt_service(provider: str = "deepgram", model: str = "nova-2-conversa
         settings_kwargs = {
             "model": dg_model,
             "language": clean_lang,
-            "endpointing": 200,
-            "utterance_end_ms": end_ms,
+            "endpointing": endpointing_ms,
+            "utterance_end_ms": utterance_end_ms,
             "interim_results": True,
         }
         if keywords and str(keywords).strip():

@@ -559,6 +559,13 @@ class DeepgramSTTService(STTService):
             # Lists (e.g. keyterm, keywords, search, redact, replace) must be
             # passed through as-is so the SDK's encode_query produces repeated
             # query params (keyterm=a&keyterm=b) instead of a stringified list.
+            if f.name == "utterance_end_ms":
+                try:
+                    ms_val = int(str(value))
+                    if ms_val < 1000:
+                        value = 1000
+                except Exception:
+                    continue
             if isinstance(value, list):
                 kwargs[f.name] = value
             elif isinstance(value, bool):
