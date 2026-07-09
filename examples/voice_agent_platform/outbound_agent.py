@@ -250,7 +250,9 @@ async def run_outbound(
     tts_engine_model = agent_config.get("tts_engine_model", "bulbul-v3")
     tts_voice = agent_config.get("tts_voice", voice)
     tts_speed = agent_config.get("tts_speed", 1.1)
+    logger.info(f"TTS config: provider={tts_provider!r} voice={tts_voice!r} engine_model={tts_engine_model!r}")
     tts = lead_context.pop("prewarmed_tts", None) or create_tts_service(tts_provider, tts_voice, tts_speed, prewarmed=False, engine_model=tts_engine_model)
+
 
     # --- Context + aggregator ---
     from tools import OUTBOUND_TOOLS, update_call_outcome

@@ -764,6 +764,7 @@ class ElevenLabsTTSService(WebsocketTTSService):
             voice_id = self._settings.voice
             model = self._settings.model
             output_format = self._output_format
+            logger.info(f"Connecting to ElevenLabs voice_id={voice_id!r} model={model!r}")
             url = f"{self._url}/v1/text-to-speech/{voice_id}/multi-stream-input?model_id={model}&output_format={output_format}&auto_mode={str(self._auto_mode).lower()}"
 
             if self._enable_ssml_parsing is not None:
