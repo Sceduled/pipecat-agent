@@ -338,6 +338,11 @@ async def run_outbound(
 
         from websockets.protocol import State as WsState
 
+        # If the prewarmed TTS socket sat idle while the phone was ringing (>5s),
+        # reconnect it now so ElevenLabs/Sarvam doesn't drop the opener audio on a timed-out socket.
+        if hasattr(tts, "_ensure_fresh_connection"):
+            await tts._ensure_fresh_connection()
+
         # Bolna pattern: wait briefly for pre-warmed TTS WebSocket to be open, then speak immediately
         deadline = asyncio.get_event_loop().time() + 3.0
         while asyncio.get_event_loop().time() < deadline:
