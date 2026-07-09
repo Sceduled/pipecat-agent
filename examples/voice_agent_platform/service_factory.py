@@ -213,7 +213,15 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
         api_key = os.environ.get("ELEVENLABS_API_KEY", "")
         if not api_key:
             logger.warning("ELEVENLABS_API_KEY is missing from environment!")
-        el_model = "eleven_turbo_v2_5" if "turbo" in str(engine_model or "") else "eleven_multilingual_v2"
+        # Map UI model strings to valid ElevenLabs streaming models
+        # eleven_multilingual_v2 is deprecated and returns HTTP 500 on new accounts
+        em = str(engine_model or "").lower()
+        if "flash" in em:
+            el_model = "eleven_flash_v2_5"   # Fastest, cheapest, all plans
+        elif "turbo" in em:
+            el_model = "eleven_turbo_v2_5"   # Balanced quality/speed
+        else:
+            el_model = "eleven_flash_v2_5"   # Safe default (covers bulbul-v3, empty, anything else)
         return ElevenLabsTTSService(
             api_key=api_key,
             settings=ElevenLabsTTSService.Settings(

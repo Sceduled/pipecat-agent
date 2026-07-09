@@ -801,7 +801,7 @@ function App() {
                           onChange={e => {
                             const prov = e.target.value;
                             const defVoice = prov === 'elevenlabs' ? 'elevenlabs:21m00Tcm4TlvDq8ikWAM' : prov === 'openai' ? 'openai:alloy' : prov === 'deepgram' ? 'deepgram:aura-asteria-en' : 'sarvam:priya';
-                            const defModel = prov === 'sarvam' ? 'bulbul-v3' : prov === 'elevenlabs' ? 'turbo-v2.5' : prov === 'openai' ? 'tts-1' : 'aura';
+                            const defModel = prov === 'sarvam' ? 'bulbul-v3' : prov === 'elevenlabs' ? 'flash-v2.5' : prov === 'openai' ? 'tts-1' : 'aura';
                             const vId = defVoice.split(':')[1];
                             setConfig({ ...config, tts_provider: prov, tts_engine_model: defModel, voice: defVoice, tts_voice: vId });
                           }}
@@ -817,8 +817,8 @@ function App() {
                         <select className="text-input" value={config.tts_engine_model || 'bulbul-v3'} onChange={e => setConfig({ ...config, tts_engine_model: e.target.value })}>
                           {(config.tts_provider === 'elevenlabs' || (config.voice && config.voice.startsWith('elevenlabs'))) ? (
                             <>
-                              <option value="turbo-v2.5">Eleven Turbo v2.5 (Lowest Latency)</option>
-                              <option value="multilingual-v2">Eleven Multilingual v2 (High Expressivity)</option>
+                              <option value="flash-v2.5">Flash v2.5 (Fastest · All Plans — Recommended)</option>
+                              <option value="turbo-v2.5">Turbo v2.5 (Balanced Quality &amp; Speed)</option>
                             </>
                           ) : (config.tts_provider === 'openai' || (config.voice && config.voice.startsWith('openai'))) ? (
                             <>
