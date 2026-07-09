@@ -246,12 +246,29 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
             el_model = "eleven_turbo_v2_5"   # Balanced quality/speed
         else:
             el_model = "eleven_flash_v2_5"   # Safe default (covers bulbul-v3, empty, anything else)
+        # Resolve ElevenLabs voice ID: prioritize Railway shared variable ELEVENLABS_VOICE_ID if present, or fallback from library voices to working clone ID
+        env_voice = os.environ.get("ELEVENLABS_VOICE_ID", "").strip()
+        library_voices = {
+            "21m00Tcm4TlvDq8ikWAM",  # Rachel
+            "QTKSa2Iyv0yoxvXY2V8a",  # Neha - Messy
+            "FGY2WhTYpPnrIDTdsKH5",  # Laura / mapped "neha"
+            "05ZfQq88eZ308OUIb3nk",  # Neha P
+            "EXAVITQu4vr4xnSDxMaL",  # Sarah
+            "IKne3meq5aSn9XLyUdCD",  # Charlie
+            "priya", "", "..."
+        }
+        el_voice = voice
+        if env_voice and env_voice != "...":
+            el_voice = env_voice
+        elif not el_voice or str(el_voice).strip() in library_voices:
+            el_voice = "rRPdnEm1XzdmDEr8jC8a"  # Working custom clone ID on this account
+
         return ElevenLabsTTSService(
             api_key=api_key,
             sample_rate=16000,
             settings=ElevenLabsTTSService.Settings(
                 model=el_model,
-                voice=voice or "21m00Tcm4TlvDq8ikWAM",
+                voice=el_voice,
                 speed=pace
             )
         )
