@@ -59,6 +59,7 @@ def create_stt_service(provider: str = "deepgram", model: str = "nova-2-conversa
 
         return DeepgramSTTService(
             api_key=api_key,
+            sample_rate=16000,
             settings=DeepgramSTTService.Settings(**settings_kwargs),
         )
     elif provider == "sarvam":

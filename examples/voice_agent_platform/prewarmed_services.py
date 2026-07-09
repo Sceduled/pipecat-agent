@@ -24,6 +24,8 @@ class PrewarmedDeepgramSTTService(DeepgramSTTService):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         _init_task_manager(self)
+        if not getattr(self, "_sample_rate", 0):
+            self._sample_rate = getattr(self, "_init_sample_rate", None) or 16000
 
     async def _connect(self):
         if getattr(self, "_connection_task", None) is not None:
