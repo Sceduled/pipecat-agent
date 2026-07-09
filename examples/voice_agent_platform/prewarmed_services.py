@@ -81,9 +81,21 @@ class PrewarmedSarvamTTSService(SarvamTTSService):
         _init_task_manager(self)
 
     async def _connect(self):
+        import time
         if getattr(self, "_websocket", None) is not None and self._websocket.state is State.OPEN:
-            logger.debug(f"{self}: Reusing pre-warmed Sarvam WebSocket connection")
-            return
+            prewarm_age = time.time() - getattr(self, "_prewarm_time", 0.0)
+            if prewarm_age < 10.0:
+                logger.debug(f"{self}: Reusing recent pre-warmed Sarvam WebSocket connection (age={prewarm_age:.1f}s)")
+                return
+            else:
+                logger.debug(f"{self}: Closing stale pre-warmed Sarvam WebSocket connection (age={prewarm_age:.1f}s)")
+                try:
+                    await self._websocket.close()
+                except Exception:
+                    pass
+                self._websocket = None
+
+        self._prewarm_time = time.time()
         await super()._connect()
 
 if ElevenLabsTTSService:
@@ -98,9 +110,21 @@ if ElevenLabsTTSService:
                 self._output_format = output_format_from_sample_rate(self.sample_rate or 16000)
 
         async def _connect(self):
+            import time
             if getattr(self, "_websocket", None) is not None and self._websocket.state is State.OPEN:
-                logger.debug(f"{self}: Reusing pre-warmed ElevenLabs WebSocket connection")
-                return
+                prewarm_age = time.time() - getattr(self, "_prewarm_time", 0.0)
+                if prewarm_age < 6.0:
+                    logger.debug(f"{self}: Reusing recent pre-warmed ElevenLabs WebSocket connection (age={prewarm_age:.1f}s)")
+                    return
+                else:
+                    logger.debug(f"{self}: Closing stale pre-warmed ElevenLabs WebSocket connection (age={prewarm_age:.1f}s) to ensure fresh audio stream")
+                    try:
+                        await self._websocket.close()
+                    except Exception:
+                        pass
+                    self._websocket = None
+
+            self._prewarm_time = time.time()
             if not self._output_format and output_format_from_sample_rate:
                 self._output_format = output_format_from_sample_rate(self.sample_rate)
             await super()._connect()
