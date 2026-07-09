@@ -246,23 +246,31 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
             el_model = "eleven_turbo_v2_5"   # Balanced quality/speed
         else:
             el_model = "eleven_flash_v2_5"   # Safe default (covers bulbul-v3, empty, anything else)
-        # Resolve ElevenLabs voice ID: prioritize Railway shared variable ELEVENLABS_VOICE_ID if present, or fallback from library voices to working clone ID
-        env_voice = os.environ.get("ELEVENLABS_VOICE_ID", "").strip()
+        # Known ElevenLabs Voice Library IDs that fail with HTTP 402 on the free tier (multi-stream-input returns isFinal=True with 0 audio)
+        # Only personal clones and voices created under this account work without a paid subscription
         library_voices = {
             "21m00Tcm4TlvDq8ikWAM",  # Rachel
             "QTKSa2Iyv0yoxvXY2V8a",  # Neha - Messy
-            "FGY2WhTYpPnrIDTdsKH5",  # Laura / mapped "neha"
+            "FGY2WhTYpPnrIDTdsKH5",  # Laura / "neha" alias
             "05ZfQq88eZ308OUIb3nk",  # Neha P
             "EXAVITQu4vr4xnSDxMaL",  # Sarah
             "IKne3meq5aSn9XLyUdCD",  # Charlie
+            "JBFqnCBsd6RMkjVDRZzb",  # George
+            "N2lVS1w4EtoT3dr4eOWO",  # Callum
             "priya", "", "..."
         }
-        el_voice = voice
-        if env_voice and env_voice != "...":
-            el_voice = env_voice
-        elif not el_voice or str(el_voice).strip() in library_voices:
-            el_voice = "rRPdnEm1XzdmDEr8jC8a"  # Working custom clone ID on this account
+        working_clone_id = "rRPdnEm1XzdmDEr8jC8a"  # neha custom clone - confirmed working on this account
 
+        # Pick voice: env var (Railway shared variable) → passed voice → fallback
+        env_voice = os.environ.get("ELEVENLABS_VOICE_ID", "").strip()
+        el_voice = env_voice if (env_voice and env_voice != "...") else voice
+
+        # ALWAYS check: if the resolved voice is a library voice, fall back to the working clone
+        if not el_voice or str(el_voice).strip() in library_voices:
+            logger.warning(f"ElevenLabs voice {el_voice!r} is a Voice Library ID that requires a paid plan. Falling back to personal clone {working_clone_id!r}")
+            el_voice = working_clone_id
+
+        logger.info(f"ElevenLabs TTS: voice={el_voice!r} model={el_model!r}")
         return ElevenLabsTTSService(
             api_key=api_key,
             sample_rate=16000,
@@ -272,6 +280,7 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
                 speed=pace
             )
         )
+
     elif provider == "deepgram":
         from pipecat.services.deepgram.tts import DeepgramTTSService
         api_key = os.environ.get("DEEPGRAM_API_KEY", "")
