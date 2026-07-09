@@ -851,6 +851,7 @@ function App() {
                         >
                           {(config.tts_provider === 'elevenlabs' || (config.voice && config.voice.startsWith('elevenlabs'))) ? (
                             <>
+                              <option value="elevenlabs:QTKSa2Iyv0yoxvXY2V8a">Custom Voice (Your Voice — QTKSa2Iy)</option>
                               <option value="elevenlabs:neha">Neha (Indian Female Conversational)</option>
                               <option value="elevenlabs:aarav">Aarav (Indian Male Executive)</option>
                               <option value="elevenlabs:priya">Priya (Indian Female Soft)</option>

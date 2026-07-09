@@ -137,10 +137,11 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
     
     if provider == "elevenlabs":
         el_map = {
-            "neha": "FGY2WhTYpPnrIDTdsKH5", # Laura (Indian Female Expressive)
-            "aarav": "IKne3meq5aSn9XLyUdCD", # Charlie (Deep Confident Male)
-            "priya": "EXAVITQu4vr4xnSDxMaL", # Sarah (Mature Reassuring Female)
-            "rahul": "ErXwobaYiN019PkySvjV", # Antoni (Well-rounded Male)
+            "qtks": "QTKSa2Iyv0yoxvXY2V8a",       # Custom voice (user's own)
+            "neha": "FGY2WhTYpPnrIDTdsKH5",         # Laura (Indian Female Expressive)
+            "aarav": "IKne3meq5aSn9XLyUdCD",        # Charlie (Deep Confident Male)
+            "priya": "EXAVITQu4vr4xnSDxMaL",        # Sarah (Mature Reassuring Female)
+            "rahul": "ErXwobaYiN019PkySvjV",         # Antoni (Well-rounded Male)
             "rachel": "21m00Tcm4TlvDq8ikWAM",
             "sarah": "EXAVITQu4vr4xnSDxMaL",
             "laura": "FGY2WhTYpPnrIDTdsKH5",
@@ -164,9 +165,15 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
             "bill": "pqHfZKP75CvOlQylNhV4",
             "roger": "CwhRBWXzGAHq8TQ4Fs17"
         }
-        if str(voice).lower() in el_map:
-            voice = el_map[str(voice).lower()]
-        elif voice in sarvam_voices or voice in openai_voices or voice in deepgram_voices or len(str(voice)) < 15:
+        voice_lower = str(voice).lower()
+        if voice_lower in el_map:
+            # Named alias → map to real ID
+            voice = el_map[voice_lower]
+        elif len(str(voice)) >= 15 and voice_lower not in sarvam_voices and voice_lower not in openai_voices and voice_lower not in deepgram_voices:
+            # Raw ElevenLabs voice ID (20-char alphanumeric) → pass through as-is
+            pass
+        elif voice_lower in sarvam_voices or voice_lower in openai_voices or voice_lower in deepgram_voices:
+            # Wrong-provider voice name slipped through → use safe default
             voice = "21m00Tcm4TlvDq8ikWAM"
     elif provider == "sarvam":
         if str(voice).lower() not in sarvam_voices:
