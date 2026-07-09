@@ -88,6 +88,11 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 
 
+@app.get("/")
+async def root():
+    return {"status": "ok", "service": "kakamutta-voice-agent"}
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
