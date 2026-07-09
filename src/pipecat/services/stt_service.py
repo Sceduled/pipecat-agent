@@ -149,7 +149,7 @@ class STTService(AIService):
 
         self._audio_passthrough = audio_passthrough
         self._init_sample_rate = sample_rate
-        self._sample_rate = 0
+        self._sample_rate = sample_rate or 0
 
         self._muted: bool = False
         self._user_id: str = ""

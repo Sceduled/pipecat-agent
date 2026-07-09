@@ -211,6 +211,7 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
         sarvam_model = "bulbul:v3" if "v3" in str(engine_model or "") else "bulbul:v2"
         return SarvamTTSService(
             api_key=api_key,
+            sample_rate=16000,
             settings=SarvamTTSService.Settings(
                 voice_id=voice or "priya",
                 model=sarvam_model,
@@ -242,6 +243,7 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
             el_model = "eleven_flash_v2_5"   # Safe default (covers bulbul-v3, empty, anything else)
         return ElevenLabsTTSService(
             api_key=api_key,
+            sample_rate=16000,
             settings=ElevenLabsTTSService.Settings(
                 model=el_model,
                 voice=voice or "21m00Tcm4TlvDq8ikWAM",
@@ -255,6 +257,7 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
             logger.warning("DEEPGRAM_API_KEY is missing from environment!")
         return DeepgramTTSService(
             api_key=api_key,
+            sample_rate=16000,
             settings=DeepgramTTSService.Settings(
                 voice=voice or "aura-asteria-en"
             )
@@ -267,6 +270,7 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
         oa_model = "tts-1-hd" if "hd" in str(engine_model or "") else "tts-1"
         return OpenAITTSService(
             api_key=api_key,
+            sample_rate=16000,
             model=oa_model,
             voice=voice or "alloy",
             speed=pace

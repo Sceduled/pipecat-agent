@@ -284,7 +284,7 @@ class TTSService(AIService):
         self._pause_frame_processing: bool = pause_frame_processing
         self._append_trailing_space: bool = append_trailing_space
         self._init_sample_rate = sample_rate
-        self._sample_rate = 0
+        self._sample_rate = sample_rate or 0
         self._text_aggregator = SimpleTextAggregator(aggregation_type=self._text_aggregation_mode)
 
         self._skip_aggregator_types: list[str] = skip_aggregator_types or []
