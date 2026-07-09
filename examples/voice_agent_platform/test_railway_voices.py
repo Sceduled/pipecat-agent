@@ -1,11 +1,12 @@
 """
 Run this on Railway console (`python test_railway_voices.py`) to check all voices on this account and see which work.
+Uses aiohttp (already installed in the environment).
 """
 import os
 import urllib.request
 import json
 import asyncio
-import websockets
+import aiohttp
 
 key = os.environ.get("ELEVENLABS_API_KEY", "")
 if not key:
@@ -34,19 +35,22 @@ except Exception as e:
 async def test_ws(vid, name):
     url = f"wss://api.elevenlabs.io/v1/text-to-speech/{vid}/multi-stream-input?model_id=eleven_flash_v2_5&output_format=pcm_16000&auto_mode=true"
     try:
-        async with websockets.connect(url, additional_headers={"xi-api-key": key}) as ws:
-            await ws.send(json.dumps({"text": "Hello test.", "context_id": "diag"}))
-            await ws.send(json.dumps({"text": "", "context_id": "diag"}))
-            chunks = 0
-            while True:
-                raw = await asyncio.wait_for(ws.recv(), timeout=3.0)
-                msg = json.loads(raw)
-                if msg.get("audio"):
-                    chunks += 1
-                if msg.get("isFinal"):
-                    break
-            await ws.close()
-            return f"{chunks} chunks (SUCCESS)" if chunks > 0 else "0 chunks (BLOCKED BY PLAN/LIBRARY RESTRICTION)"
+        async with aiohttp.ClientSession() as session:
+            async with session.ws_connect(url, headers={"xi-api-key": key}) as ws:
+                await ws.send_json({"text": "Hello test.", "context_id": "diag"})
+                await ws.send_json({"text": "", "context_id": "diag"})
+                chunks = 0
+                while True:
+                    try:
+                        msg = await asyncio.wait_for(ws.receive_json(), timeout=3.0)
+                        if msg.get("audio"):
+                            chunks += 1
+                        if msg.get("isFinal"):
+                            break
+                    except asyncio.TimeoutError:
+                        break
+                await ws.close()
+                return f"{chunks} chunks (SUCCESS)" if chunks > 0 else "0 chunks (BLOCKED BY PLAN/LIBRARY RESTRICTION)"
     except Exception as e:
         return f"ERROR: {e}"
 
