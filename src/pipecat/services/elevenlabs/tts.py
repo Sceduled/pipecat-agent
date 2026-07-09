@@ -598,7 +598,7 @@ class ElevenLabsTTSService(WebsocketTTSService):
         self._enable_ssml_parsing = enable_ssml_parsing
         self._enable_logging = enable_logging
 
-        self._output_format = ""  # initialized in start()
+        self._output_format = output_format_from_sample_rate(self.sample_rate)
         self._voice_settings = self._set_voice_settings()
         self._pronunciation_dictionary_locators = _pronunciation_dictionary_locators
 
@@ -1203,7 +1203,7 @@ class ElevenLabsHttpTTSService(TTSService):
         self._session = aiohttp_session
         self._enable_logging = enable_logging
 
-        self._output_format = ""  # initialized in start()
+        self._output_format = output_format_from_sample_rate(self.sample_rate)
         self._voice_settings = self._set_voice_settings()
         self._pronunciation_dictionary_locators = _pronunciation_dictionary_locators
 

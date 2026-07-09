@@ -3,6 +3,11 @@ from loguru import logger
 from websockets.protocol import State
 from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.sarvam.tts import SarvamTTSService
+try:
+    from pipecat.services.elevenlabs.tts import ElevenLabsTTSService, output_format_from_sample_rate
+except ImportError:
+    ElevenLabsTTSService = None
+    output_format_from_sample_rate = None
 from pipecat.utils.asyncio.task_manager import TaskManager, TaskManagerParams
 
 def _init_task_manager(service):
@@ -74,3 +79,20 @@ class PrewarmedSarvamTTSService(SarvamTTSService):
             logger.debug(f"{self}: Reusing pre-warmed Sarvam WebSocket connection")
             return
         await super()._connect()
+
+if ElevenLabsTTSService:
+    class PrewarmedElevenLabsTTSService(ElevenLabsTTSService):
+        """ElevenLabs TTS service that gracefully checks existing open WebSocket connections and populates output_format."""
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            _init_task_manager(self)
+            if not self._output_format and output_format_from_sample_rate:
+                self._output_format = output_format_from_sample_rate(self.sample_rate)
+
+        async def _connect(self):
+            if getattr(self, "_websocket", None) is not None and self._websocket.state is State.OPEN:
+                logger.debug(f"{self}: Reusing pre-warmed ElevenLabs WebSocket connection")
+                return
+            if not self._output_format and output_format_from_sample_rate:
+                self._output_format = output_format_from_sample_rate(self.sample_rate)
+            await super()._connect()

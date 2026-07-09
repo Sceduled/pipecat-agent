@@ -209,10 +209,17 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
             )
         )
     elif provider == "elevenlabs":
-        from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
         api_key = os.environ.get("ELEVENLABS_API_KEY", "")
         if not api_key:
             logger.warning("ELEVENLABS_API_KEY is missing from environment!")
+        if prewarmed:
+            try:
+                from prewarmed_services import PrewarmedElevenLabsTTSService as ElevenLabsTTSService
+            except (ImportError, AttributeError):
+                from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
+        else:
+            from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
+
         # Map UI model strings to valid ElevenLabs streaming models
         # eleven_multilingual_v2 is deprecated and returns HTTP 500 on new accounts
         em = str(engine_model or "").lower()
