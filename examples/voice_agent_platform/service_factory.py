@@ -218,7 +218,7 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
             api_key=api_key,
             sample_rate=16000,
             settings=SarvamTTSService.Settings(
-                voice_id=voice or "priya",
+                voice=voice or "priya",
                 model=sarvam_model,
                 pace=pace,
                 min_buffer_size=30,
