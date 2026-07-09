@@ -280,19 +280,19 @@ def create_tts_service(provider: str = "sarvam", voice: str = "priya", speed: fl
 
         # Pick voice: passed voice (Bolna UI/config switching) -> env var -> fallback
         passed_voice = str(voice or "").strip()
-        if passed_voice.lower() == "neha":
-            passed_voice = "QTKSa2Iyv0yoxvXY2V8a"
+        if passed_voice.lower() in ("neha", "cloned", "priya"):
+            passed_voice = "OWBH5J5snMCxnfYDvD7R"
         env_voice = os.environ.get("ELEVENLABS_VOICE_ID", "").strip()
         el_voice = passed_voice if (passed_voice and passed_voice != "...") else env_voice
 
         # ALWAYS check: if the resolved voice is a library/premade voice, check for a personal clone
         if not el_voice or str(el_voice).strip() in library_voice_ids:
-            personal = _find_personal_voice(api_key)
+            personal = _find_personal_voice(api_key) or "OWBH5J5snMCxnfYDvD7R"
             if personal:
-                logger.info(f"Found personal clone {personal!r} on account, using WebSocket multi-stream-input")
+                logger.info(f"Using personal clone {personal!r} on account for fast WebSocket multi-stream-input")
                 el_voice = personal
             else:
-                el_voice = el_voice or "QTKSa2Iyv0yoxvXY2V8a"
+                el_voice = el_voice or "OWBH5J5snMCxnfYDvD7R"
                 logger.info(f"ElevenLabs voice {el_voice!r} is a Voice Library ID and no personal clone exists on this account. Automatically switching to ElevenLabsHttpTTSService (HTTP streaming) to bypass WebSocket 0-chunk restriction!")
                 import aiohttp
                 from pipecat.services.elevenlabs.tts import ElevenLabsHttpTTSService
