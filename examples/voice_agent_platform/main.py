@@ -68,6 +68,12 @@ async def lifespan(_app: FastAPI):
     else:
         logger.critical("OPENAI_API_KEY is not set — all calls will be silent!")
     logger.info("Prestige Realty Voice Agent starting")
+    try:
+        from database import init_db
+        init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}. App will start but DB-dependent routes may fail.")
     yield
     logger.info("Prestige Realty Voice Agent stopped")
 

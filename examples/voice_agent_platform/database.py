@@ -68,8 +68,6 @@ class CallLog(Base):
     
     agent = relationship("Agent", back_populates="call_logs")
 
-Base.metadata.create_all(bind=engine)
-
 from sqlalchemy import text
 def auto_migrate():
     queries = [
@@ -99,7 +97,10 @@ def auto_migrate():
         except Exception:
             pass
 
-auto_migrate()
+def init_db():
+    Base.metadata.create_all(bind=engine)
+    auto_migrate()
+
 def get_db():
     db = SessionLocal()
     try:
