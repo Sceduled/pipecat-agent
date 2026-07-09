@@ -51,7 +51,8 @@ class PrewarmedDeepgramSTTService(DeepgramSTTService):
             except Exception as e:
                 retries += 1
                 err_str = str(e)
-                if "400" in err_str or "401" in err_str or "403" in err_str or retries >= 3:
+                # Stop immediately on auth errors, bad requests, or server rejections
+                if any(code in err_str for code in ["400", "401", "403", "500", "503"]) or retries >= 3:
                     logger.error(f"{self}: Fatal WebSocket error or max retries reached ({err_str}). Stopping retry loop.")
                     break
                 logger.warning(f"{self}: Connection lost, retry #{retries} in 1s: {e}")

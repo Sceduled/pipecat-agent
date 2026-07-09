@@ -460,10 +460,37 @@ async def dial(request: Request):
 
     async def _prewarm_sockets():
         try:
-            await asyncio.gather(prewarmed_tts._connect(), prewarmed_stt._connect(), return_exceptions=True)
-            logger.info(f"Ring-phase WebSocket prewarming initiated for session={session_token}")
+            results = await asyncio.gather(
+                prewarmed_tts._connect(),
+                prewarmed_stt._connect(),
+                return_exceptions=True
+            )
+            # Check if TTS connection is alive (non-prewarmed services won't have _connection_ready)
+            tts_ready = True
+            if hasattr(prewarmed_tts, '_connection_ready'):
+                tts_ready = prewarmed_tts._connection_ready.is_set()
+            elif hasattr(prewarmed_tts, '_websocket'):
+                from websockets.protocol import State
+                tts_ready = getattr(prewarmed_tts, '_websocket', None) is not None and \
+                            prewarmed_tts._websocket.state.name == 'OPEN'
+
+            stt_ready = True
+            if hasattr(prewarmed_stt, '_connection_ready'):
+                stt_ready = prewarmed_stt._connection_ready.is_set()
+
+            if not tts_ready:
+                lead_context.pop('prewarmed_tts', None)
+                logger.warning(f"TTS prewarming failed for session={session_token}, will connect fresh on call answer")
+            if not stt_ready:
+                lead_context.pop('prewarmed_stt', None)
+                logger.warning(f"STT prewarming failed for session={session_token}, will connect fresh on call answer")
+
+            if tts_ready and stt_ready:
+                logger.info(f"Ring-phase WebSocket prewarming succeeded for session={session_token}")
         except Exception as e:
-            logger.warning(f"Ring-phase prewarming failed: {e}")
+            logger.warning(f"Ring-phase prewarming error: {e} — removing prewarmed services")
+            lead_context.pop('prewarmed_tts', None)
+            lead_context.pop('prewarmed_stt', None)
     asyncio.create_task(_prewarm_sockets())
 
     base = PUBLIC_URL if PUBLIC_URL else _http_base_url(request)
@@ -526,10 +553,36 @@ async def dial_multilingual(request: Request):
 
     async def _prewarm_sockets_ml():
         try:
-            await asyncio.gather(prewarmed_tts._connect(), prewarmed_stt._connect(), return_exceptions=True)
-            logger.info(f"Ring-phase ML WebSocket prewarming initiated for session={session_token}")
+            results = await asyncio.gather(
+                prewarmed_tts._connect(),
+                prewarmed_stt._connect(),
+                return_exceptions=True
+            )
+            tts_ready = True
+            if hasattr(prewarmed_tts, '_connection_ready'):
+                tts_ready = prewarmed_tts._connection_ready.is_set()
+            elif hasattr(prewarmed_tts, '_websocket'):
+                from websockets.protocol import State
+                tts_ready = getattr(prewarmed_tts, '_websocket', None) is not None and \
+                            prewarmed_tts._websocket.state.name == 'OPEN'
+
+            stt_ready = True
+            if hasattr(prewarmed_stt, '_connection_ready'):
+                stt_ready = prewarmed_stt._connection_ready.is_set()
+
+            if not tts_ready:
+                lead_context.pop('prewarmed_tts', None)
+                logger.warning(f"ML TTS prewarming failed for session={session_token}, will connect fresh on call answer")
+            if not stt_ready:
+                lead_context.pop('prewarmed_stt', None)
+                logger.warning(f"ML STT prewarming failed for session={session_token}, will connect fresh on call answer")
+
+            if tts_ready and stt_ready:
+                logger.info(f"Ring-phase ML WebSocket prewarming succeeded for session={session_token}")
         except Exception as e:
-            logger.warning(f"Ring-phase ML prewarming failed: {e}")
+            logger.warning(f"Ring-phase ML prewarming error: {e} — removing prewarmed services")
+            lead_context.pop('prewarmed_tts', None)
+            lead_context.pop('prewarmed_stt', None)
     asyncio.create_task(_prewarm_sockets_ml())
 
     base = PUBLIC_URL if PUBLIC_URL else _http_base_url(request)
