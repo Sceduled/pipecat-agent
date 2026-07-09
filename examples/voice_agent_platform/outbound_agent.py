@@ -202,6 +202,7 @@ class OpenerProtectionFilter(FrameProcessor):
             if isinstance(frame, (UserStartedSpeakingFrame, TranscriptionFrame, InterruptionFrame)):
                 return
         await super().process_frame(frame, direction)
+        await self.push_frame(frame, direction)
 
 
 async def run_outbound(
