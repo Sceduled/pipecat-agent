@@ -3,9 +3,9 @@ import { Bot, Save, CheckCircle2, Plus, User, Phone, PhoneCall, PhoneOutgoing, L
 import { motion, AnimatePresence } from 'framer-motion';
 import './index.css';
 
-const API_BASE = 'https://kakamutta-production.up.railway.app/api';
-// Use local endpoint for dialers because they are not under /api currently in main.py
-const DIAL_BASE = 'https://kakamutta-production.up.railway.app';
+const API_BASE = '/api';
+// Use relative endpoint for dialers
+const DIAL_BASE = '';
 
 function App() {
   const [view, setView] = useState('library'); // 'library', 'type_select', 'templates', 'builder'

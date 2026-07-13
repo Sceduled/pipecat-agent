@@ -1,4 +1,14 @@
 # syntax=docker/dockerfile:1
+
+# Stage 1: Build the frontend dashboard
+FROM node:20-slim AS frontend-build
+WORKDIR /app
+COPY examples/voice_agent_platform/dashboard/package*.json ./
+RUN npm ci
+COPY examples/voice_agent_platform/dashboard/ ./
+RUN npm run build
+
+# Stage 2: Python backend
 FROM python:3.12-slim
 
 # System deps for audio processing (resampy, soxr, onnxruntime)
@@ -27,6 +37,9 @@ RUN uv sync --no-dev \
 
 # Copy the voice agent platform
 COPY examples/voice_agent_platform/ ./examples/voice_agent_platform/
+
+# Copy the built dashboard from the frontend stage
+COPY --from=frontend-build /app/dist ./examples/voice_agent_platform/dashboard/dist
 
 ENV PORT=8080
 EXPOSE 8080

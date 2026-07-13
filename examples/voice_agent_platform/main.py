@@ -28,7 +28,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, Request, WebSocket
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
@@ -939,6 +940,29 @@ def _stream_xml(ws_url: str) -> str:
     <Stream bidirectional="true" keepCallAlive="true" contentType="audio/x-mulaw;rate=8000">{ws_url}</Stream>
 </Response>"""
 
+
+# ---------------------------------------------------------------------------
+# Frontend Dashboard (Static Files)
+# ---------------------------------------------------------------------------
+
+dashboard_path = Path(__file__).parent / "dashboard" / "dist"
+
+@app.get("/{full_path:path}")
+async def serve_dashboard(full_path: str):
+    # Don't intercept actual API routes if they fell through
+    if full_path.startswith("api/") or full_path.startswith("ws/") or full_path.startswith("voice-xml/"):
+        return PlainTextResponse("Not Found", status_code=404)
+        
+    file_path = dashboard_path / full_path
+    if file_path.is_file():
+        return FileResponse(file_path)
+    
+    # Fallback for SPA routing
+    index_path = dashboard_path / "index.html"
+    if index_path.is_file():
+        return FileResponse(index_path)
+        
+    return PlainTextResponse("Dashboard not built. Run 'npm run build' in the dashboard directory.", status_code=404)
 
 # ---------------------------------------------------------------------------
 # Entry point
