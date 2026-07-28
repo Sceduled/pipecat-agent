@@ -303,7 +303,7 @@ function App() {
       >
         <div className="nav-logo" style={{ cursor: 'pointer' }} onClick={() => setView('library')}>
           <Bot size={32} color="var(--accent)" />
-          <span>Kakkamutta Platform</span>
+          <span> CallAI </span>
         </div>
         <div className="nav-actions">
           {view === 'library' && (
